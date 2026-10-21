@@ -1,4 +1,6 @@
 # xg-icons-hub
+fork版，修复默认大小下拖动条问题
+
 🎉又一个图标托管项目~ 让你的 Docker 、导航站更 Nice！
 
 博主提供了自行重置的部分高清图标，可以直接食用，当然亦可私有自行部署。
@@ -37,7 +39,7 @@ Fork 本仓库到你的 GitHub 账号，图标路径 `/images` 下可替换为�
 ```yaml
 services:
   xg-icons-hub:
-    image: verky/xg-icons-hub:latest
+    image: ghcr.io/fromeverywhere/xg-icons-hub:latest
     container_name: xg-icons-hub
     ports:
       - "28080:5000"
@@ -56,7 +58,7 @@ services:
     restart: unless-stopped
 ```
 
-- ghcr 镜像版，可改为 `ghcr.io/verkyer/xg-icons-hub:latest`
+- ghcr 镜像版，可改为 `ghcr.io/fromeverywhere/xg-icons-hub:latest`
 
 ## 环境变量
 
