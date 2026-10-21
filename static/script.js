@@ -274,7 +274,7 @@ document.addEventListener('DOMContentLoaded', () => {
         iconGrid.innerHTML = '';
         filteredIcons = getFilteredIcons();
         renderedIconCount = 0;
-        appendIconCards(initialCount);
+        appendIconCards(filteredIcons.length);
 
         const resultCount = filteredIcons.length;
         const query = searchInput.value.toLowerCase();
