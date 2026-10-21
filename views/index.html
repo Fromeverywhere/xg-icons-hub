@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="又一个图标托管项目~ 让你的 Docker 、导航站更 Nice！">
+    <title>XG-icons</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link id="faviconLink" rel="icon" href="/static/favicon.ico">
+<style>
+/* V7 极简高度锁链：保排版 + 出滚动 */
+html, body { height: 100% !important; overflow: hidden !important; }
+.app-container { height: 100% !important; min-height: 0 !important; }
+main.main-content { display: flex !important; flex-direction: column !important; flex: 1 !important; min-height: 0 !important; }
+#iconScrollArea { flex: 1 1 auto !important; min-height: 0 !important; overflow-y: auto !important; overflow-x: hidden !important; }
+.icon-grid { height: auto !important; }
+</style>
+</head>
+<body>
+    <div class="desktop-wallpaper" aria-hidden="true"></div>
+
+    <div class="app-window">
+        <div class="app-container">
+            <aside class="sidebar">
+                <div class="header-row">
+                    <div class="logo" title="返回顶部">
+                        <img id="siteLogo" src="/static/favicon.ico" alt="Logo" class="logo-img">
+                        <h1 id="siteTitle">XG-icons</h1>
+                    </div>
+
+                    <div class="controls">
+                        <span id="mobileResultCount" class="mobile-result-count hidden" aria-live="polite"></span>
+                        <button id="themeToggle" class="btn-icon" title="深浅色切换" aria-label="切换深浅色主题">
+                            <svg class="theme-icon theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <circle cx="12" cy="12" r="4"></circle>
+                                <path d="M12 2v2"></path>
+                                <path d="M12 20v2"></path>
+                                <path d="m4.93 4.93 1.41 1.41"></path>
+                                <path d="m17.66 17.66 1.41 1.41"></path>
+                                <path d="M2 12h2"></path>
+                                <path d="M20 12h2"></path>
+                                <path d="m6.34 17.66-1.41 1.41"></path>
+                                <path d="m19.07 4.93-1.41 1.41"></path>
+                            </svg>
+                            <svg class="theme-icon theme-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="search-row">
+                    <div class="mobile-category-wrapper hidden-desktop">
+                        <select id="mobileCategorySelect" class="category-select-native" aria-label="选择分类">
+                            <!-- Options injected by JS -->
+                        </select>
+                        <div id="mobileCategoryTrigger" class="category-select" aria-hidden="true">
+                            <span id="mobileCategoryLabel" class="category-select-label">全部</span>
+                            <svg class="mobile-category-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="m6 9 6 6 6-6"></path>
+                            </svg>
+                        </div>
+                    </div>
+
+                    <div class="search-box">
+                        <div class="input-wrapper">
+                            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <circle cx="11" cy="11" r="8"></circle>
+                                <path d="m21 21-4.3-4.3"></path>
+                            </svg>
+                            <input type="text" id="searchInput" placeholder="搜索图标" aria-label="搜索图标">
+                            <button id="clearSearch" class="clear-btn hidden" title="清空" aria-label="清空搜索">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                                    <path d="M18 6 6 18"></path>
+                                    <path d="m6 6 12 12"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <nav class="category-nav hidden-mobile" aria-label="分类导航">
+                    <ul id="categoryList" class="category-list">
+                        <!-- Categories will be injected here -->
+                    </ul>
+                </nav>
+
+                <div class="sidebar-footer hidden-mobile">
+                    <footer id="siteFooter" class="site-footer"></footer>
+                </div>
+            </aside>
+
+            <main class="main-content">
+                <header class="content-header">
+                    <h2 id="currentViewTitle" tabindex="-1">全部图标</h2>
+                    <p id="resultSummary" class="result-summary" aria-live="polite">正在读取...</p>
+                </header>
+
+                <div id="iconScrollArea" class="icon-scroll-area">
+                    <div id="iconGrid" class="icon-grid">
+                        <!-- Icons will be injected here -->
+                    </div>
+
+                    <div id="loading" class="loading">加载中...</div>
+                    <div id="emptyState" class="empty-state hidden">没有找到匹配的图标</div>
+
+                    <footer id="mobileFooter" class="site-footer mobile-footer hidden-desktop"></footer>
+                </div>
+
+                <button id="backToTop" class="back-to-top hidden" title="回到顶部" aria-label="回到顶部">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="m18 15-6-6-6 6"></path>
+                    </svg>
+                </button>
+            </main>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast hidden" role="status" aria-live="polite">已复制链接!</div>
+
+    <script src="/static/modal.js"></script>
+    <script src="/static/script.js"></script>
+</body>
+</html>
