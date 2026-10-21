@@ -39,7 +39,7 @@ Fork 本仓库到你的 GitHub 账号，图标路径 `/images` 下可替换为�
 ```yaml
 services:
   xg-icons-hub:
-    image: ghcr.io/fromeverywhere/xg-icons-hub:latest
+    image: fromeverywhere/xg-icons-hub:latest
     container_name: xg-icons-hub
     ports:
       - "28080:5000"
