@@ -7,6 +7,29 @@
     <title>XG-icons</title>
     <link rel="stylesheet" href="/static/style.css">
     <link id="faviconLink" rel="icon" href="/static/favicon.ico">
+<style>
+/* ===== 修复 xg-icons 首屏高度算死导致无滚动条 ===== */
+
+/* 1. 主区域不再锁死高度 */
+.main-content {
+  height: auto !important;
+  min-height: 100vh;
+}
+
+/* 2. 真正负责滚动的容器：强制开启纵向滚动 */
+.icon-scroll-area {
+  height: auto !important;
+  min-height: calc(100vh - 120px); /* 减去 header 大概高度，留点余量 */
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch; /* iOS 顺滑滚动 */
+}
+
+/* 3. 保险：body 也不要拦滚动 */
+html, body {
+  height: auto !important;
+  overflow-y: auto !important;
+}
+</style>
 </head>
 <body>
     <div class="desktop-wallpaper" aria-hidden="true"></div>
