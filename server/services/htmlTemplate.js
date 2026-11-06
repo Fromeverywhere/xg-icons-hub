@@ -84,6 +84,12 @@ function applyHtml(html, config) {
         out = out.replace(/<\/head>/i, `    <script defer src="${scriptUrl}" data-website-id="${siteId}"></script>\n</head>`);
     }
 
+    // 缩略图开关直接内联进 HTML，首屏渲染不必等 /api/config.json 返回。
+    // 静态构建（Cloudflare / EdgeOne Pages）传入 false，因此不会去请求不存在的 /thumbs。
+    if (config.THUMB_ENABLED) {
+        out = out.replace(/<\/head>/i, '    <script>window.__XG_THUMBS__=true;</script>\n</head>');
+    }
+
     // Replace Footer
     const footerContent = (config.COPYRIGHT || '') + 
         (config.ICP ? `<br><a id="icpLink" href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer nofollow">${config.ICP}</a>` : '');

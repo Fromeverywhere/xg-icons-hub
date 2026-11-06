@@ -23,4 +23,12 @@ if ! find "$images_dir" -type f | grep -Eiq "$icon_pattern"; then
     fi
 fi
 
+# 全量扫库由服务进程启动后异步执行（server/index.js -> thumbnailer.start()）：
+# 补齐缺失、重建变更、删除孤儿，且不阻塞网站开放访问。
+# 扫库期间 /thumbs 会自动回源到 /images 原图，不会出现破图。
+# 手动重扫：docker exec <container> node /app/server/thumbnail-cli.js
+if [ "${THUMB_ENABLED:-true}" != "false" ]; then
+    echo "Thumbnail sync will run in the background after startup."
+fi
+
 exec "$@"

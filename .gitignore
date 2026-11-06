@@ -21,3 +21,9 @@ dist/
 
 # Logs
 *.log
+
+# Locally generated thumbnails (Docker uses /app/thumbs inside the container)
+.thumbs/
+
+# Local agent workspace data (notes, memory)
+.workbuddy/

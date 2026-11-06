@@ -22,6 +22,9 @@
     "url": "https://github.com/verkyer/xg-icons-hub/issues"
   },
   "homepage": "https://github.com/verkyer/xg-icons-hub#readme",
+  "dependencies": {
+    "sharp": "^0.34.0"
+  },
   "devDependencies": {
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",

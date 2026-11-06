@@ -47,7 +47,9 @@ const config = {
     FAVICON: process.env.FAVICON || 'favicon.ico',
     ICP: process.env.ICP || '',
     UMAMI_URL: process.env.UMAMI_URL || '',
-    UMAMI_SITE_ID: process.env.UMAMI_SITE_ID || ''
+    UMAMI_SITE_ID: process.env.UMAMI_SITE_ID || '',
+    // 静态 Pages 部署没有运行时缩略图服务，列表继续使用原图
+    THUMB_ENABLED: false
 };
 
 fs.writeFileSync(path.join(API_DIR, 'config.json'), JSON.stringify(config, null, 2));

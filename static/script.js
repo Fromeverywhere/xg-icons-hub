@@ -248,11 +248,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 const displayName = filename.replace(/\.[^/.]+$/, '');
                 if (query && !displayName.toLowerCase().includes(query)) return;
 
+                // url 始终是原图：复制链接、下载、新窗口打开、弹窗预览全部用它，行为与旧版一致。
+                // thumbUrl 仅由列表卡片使用，由服务端注入的开关决定是否启用。
+                const origin = window.location.origin;
+                const encodedCategory = encodeURIComponent(cat.name);
+                const encodedFilename = encodeURIComponent(filename);
+
                 items.push({
                     category: cat.name,
                     filename,
                     displayName,
-                    url: `${window.location.origin}/images/${cat.name}/${filename}`
+                    url: `${origin}/images/${encodedCategory}/${encodedFilename}`,
+                    thumbUrl: window.__XG_THUMBS__ === true
+                        ? `${origin}/thumbs/${encodedCategory}/${encodedFilename}.webp`
+                        : ''
                 });
             });
         });
@@ -274,7 +283,7 @@ document.addEventListener('DOMContentLoaded', () => {
         iconGrid.innerHTML = '';
         filteredIcons = getFilteredIcons();
         renderedIconCount = 0;
-        appendIconCards(filteredIcons.length);
+        appendIconCards(initialCount);
 
         const resultCount = filteredIcons.length;
         const query = searchInput.value.toLowerCase();
@@ -345,8 +354,25 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 550);
     }
 
+    // 缩略图缺失（尚未生成、图标刚加进来、编码失败）时自动回源到原图；
+    // 原图也取不到才显示占位图。移除监听避免占位图再失败时死循环。
+    function attachImageFallback(img, fallbackUrl) {
+        let fallbackUsed = false;
+        const onError = () => {
+            if (!fallbackUsed && fallbackUrl) {
+                fallbackUsed = true;
+                img.src = fallbackUrl;
+                return;
+            }
+            img.removeEventListener('error', onError);
+            img.src = '/static/favicon.ico';
+            img.style.opacity = '0.5';
+        };
+        img.addEventListener('error', onError);
+    }
+
     function createIconCard(item, index) {
-        const { category, filename, displayName, url } = item;
+        const { category, filename, displayName, url, thumbUrl } = item;
         const div = document.createElement('div');
         div.className = 'icon-card';
         div.dataset.category = category;
@@ -355,13 +381,20 @@ document.addEventListener('DOMContentLoaded', () => {
         div.setAttribute('tabindex', '0');
 
         div.innerHTML = `
-            <div class="icon-img-wrapper">
-                <img src="${url}" alt="${filename}" loading="lazy" onerror="this.src='/static/favicon.ico';this.style.opacity=0.5;">
-            </div>
+            <div class="icon-img-wrapper"></div>
             <div class="icon-name" title="${displayName}">
                 <span>${displayName}</span>
             </div>
         `;
+
+        const img = document.createElement('img');
+        img.alt = filename;
+        img.loading = 'lazy';
+        img.decoding = 'async';
+        img.fetchPriority = 'low';
+        img.src = thumbUrl || url;
+        attachImageFallback(img, thumbUrl ? url : '');
+        div.querySelector('.icon-img-wrapper').appendChild(img);
 
         div.addEventListener('click', () => {
             openIconModal(item, index);
