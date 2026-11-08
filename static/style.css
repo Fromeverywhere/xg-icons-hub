@@ -613,6 +613,12 @@ button {
     padding-bottom: 48px;
 }
 
+/* Invisible marker for the IntersectionObserver that queues the next batch. */
+.icon-load-sentinel {
+    height: 1px;
+    pointer-events: none;
+}
+
 .icon-card {
     position: relative;
     display: flex;

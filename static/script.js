@@ -12,6 +12,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const INITIAL_ICON_BATCH_SIZE = 88;
     const ICON_BATCH_SIZE = 48;
+    // Distance from the bottom of the scroll area at which the next batch is queued.
+    const LOAD_MORE_MARGIN = 400;
 
     let allIcons = []; // Stores the raw data
     let currentCategory = 'all';
@@ -20,6 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let renderedIconCount = 0;
     let iconRenderVersion = 0;
     let scheduledIconBatch = 0;
+    let viewportFillFrame = 0;
     let allCategoryRenderedCount = 0;
 
     // 0. Fetch Config
@@ -101,6 +104,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // Scroll Management
     let allCategoryScrollTop = 0;
     const iconScrollArea = document.getElementById('iconScrollArea');
+
+    // A 1px sentinel after the grid is observed instead of relying on scroll
+    // events: a short list has no scrollbar, so scroll events can never fire.
+    const loadMoreSentinel = document.createElement('div');
+    loadMoreSentinel.className = 'icon-load-sentinel';
+    loadMoreSentinel.setAttribute('aria-hidden', 'true');
+    iconGrid.insertAdjacentElement('afterend', loadMoreSentinel);
+
     const mobileCategorySelect = document.getElementById('mobileCategorySelect');
     const mobileCategoryLabel = document.getElementById('mobileCategoryLabel');
     const siteLogoEl = document.getElementById('siteLogo');
@@ -278,6 +289,10 @@ document.addEventListener('DOMContentLoaded', () => {
             cancelAnimationFrame(scheduledIconBatch);
             scheduledIconBatch = 0;
         }
+        if (viewportFillFrame) {
+            cancelAnimationFrame(viewportFillFrame);
+            viewportFillFrame = 0;
+        }
 
         iconRenderVersion++;
         iconGrid.innerHTML = '';
@@ -322,6 +337,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderedIconCount = end;
         if (currentCategory === 'all') allCategoryRenderedCount = renderedIconCount;
         scheduleIconNameMeasure();
+        scheduleViewportFill();
     }
 
     function queueNextIconBatch() {
@@ -331,6 +347,27 @@ document.addEventListener('DOMContentLoaded', () => {
         scheduledIconBatch = requestAnimationFrame(() => {
             scheduledIconBatch = 0;
             if (renderVersion !== iconRenderVersion) return;
+            appendIconCards(ICON_BATCH_SIZE);
+        });
+    }
+
+    // Deadlock guard: the "load more" trigger used to depend solely on a scroll
+    // event, but the first 88 cards can fit inside a wide/tall viewport. With no
+    // overflow there is no scrollbar, no scroll event, and the remaining icons
+    // never appear. Keep appending batches one frame at a time until the list is
+    // actually scrollable (or everything is rendered), then let the observer /
+    // scroll handler take over. This keeps first paint cheap without stranding
+    // icons, and scales to a much larger library than rendering all cards once.
+    function scheduleViewportFill() {
+        if (viewportFillFrame || renderedIconCount >= filteredIcons.length) return;
+
+        const renderVersion = iconRenderVersion;
+        viewportFillFrame = requestAnimationFrame(() => {
+            viewportFillFrame = 0;
+            if (renderVersion !== iconRenderVersion) return;
+            if (renderedIconCount >= filteredIcons.length) return;
+            if (iconScrollArea.scrollHeight > iconScrollArea.clientHeight + 1) return;
+
             appendIconCards(ICON_BATCH_SIZE);
         });
     }
@@ -503,7 +540,7 @@ document.addEventListener('DOMContentLoaded', () => {
             backToTopBtn.classList.add('hidden');
         }
 
-        if (iconScrollArea.scrollTop + iconScrollArea.clientHeight >= iconScrollArea.scrollHeight - 400) {
+        if (iconScrollArea.scrollTop + iconScrollArea.clientHeight >= iconScrollArea.scrollHeight - LOAD_MORE_MARGIN) {
             queueNextIconBatch();
         }
     });
@@ -522,12 +559,35 @@ document.addEventListener('DOMContentLoaded', () => {
     if (siteLogoEl) siteLogoEl.addEventListener('click', scrollTopViaLogo);
     if (siteTitleEl) siteTitleEl.addEventListener('click', scrollTopViaLogo);
 
+    // Preferred "load more" trigger: fires as the bottom of the list approaches
+    // the viewport, independent of scroll events and of the exact row height.
+    if ('IntersectionObserver' in window) {
+        const loadMoreObserver = new IntersectionObserver(entries => {
+            if (entries.some(entry => entry.isIntersecting)) queueNextIconBatch();
+        }, { root: iconScrollArea, rootMargin: `0px 0px ${LOAD_MORE_MARGIN}px 0px` });
+        loadMoreObserver.observe(loadMoreSentinel);
+    }
+
     if ('ResizeObserver' in window) {
         const iconGridResizeObserver = new ResizeObserver(scheduleIconNameMeasure);
         iconGridResizeObserver.observe(iconGrid);
+        // A larger window can turn a scrollable list back into a short one.
+        const scrollAreaResizeObserver = new ResizeObserver(scheduleViewportFill);
+        scrollAreaResizeObserver.observe(iconScrollArea);
     } else {
-        window.addEventListener('resize', scheduleIconNameMeasure);
+        window.addEventListener('resize', () => {
+            scheduleIconNameMeasure();
+            scheduleViewportFill();
+        });
     }
+
+    // Small read-only hook, handy for smoke-testing progressive rendering.
+    window.__xgRenderState = () => ({
+        rendered: renderedIconCount,
+        total: filteredIcons.length,
+        scrollHeight: iconScrollArea.scrollHeight,
+        clientHeight: iconScrollArea.clientHeight
+    });
 
     // Init
     fetchConfig();
