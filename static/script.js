@@ -354,10 +354,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // Deadlock guard: the "load more" trigger used to depend solely on a scroll
     // event, but the first 88 cards can fit inside a wide/tall viewport. With no
     // overflow there is no scrollbar, no scroll event, and the remaining icons
-    // never appear. Keep appending batches one frame at a time until the list is
-    // actually scrollable (or everything is rendered), then let the observer /
-    // scroll handler take over. This keeps first paint cheap without stranding
-    // icons, and scales to a much larger library than rendering all cards once.
+    // never appear. Keep appending batches one frame at a time until the list
+    // has a usable scroll range (or everything is rendered), then let the
+    // observer / scroll handler take over. This keeps first paint cheap without
+    // stranding icons, and scales to a much larger library than rendering all
+    // cards once.
+    // The target is clientHeight + LOAD_MORE_MARGIN rather than just +1px: a
+    // 20px scroll range is practically invisible, and it also leaves the
+    // sentinel inside the observer's preload band (so it would never transition
+    // to "not intersecting" and never fire again when the user scrolls down).
+    const MIN_SCROLL_RANGE = LOAD_MORE_MARGIN;
     function scheduleViewportFill() {
         if (viewportFillFrame || renderedIconCount >= filteredIcons.length) return;
 
@@ -366,7 +372,7 @@ document.addEventListener('DOMContentLoaded', () => {
             viewportFillFrame = 0;
             if (renderVersion !== iconRenderVersion) return;
             if (renderedIconCount >= filteredIcons.length) return;
-            if (iconScrollArea.scrollHeight > iconScrollArea.clientHeight + 1) return;
+            if (iconScrollArea.scrollHeight > iconScrollArea.clientHeight + MIN_SCROLL_RANGE) return;
 
             appendIconCards(ICON_BATCH_SIZE);
         });

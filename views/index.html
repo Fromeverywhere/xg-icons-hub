@@ -7,29 +7,13 @@
     <title>XG-icons</title>
     <link rel="stylesheet" href="/static/style.css">
     <link id="faviconLink" rel="icon" href="/static/favicon.ico">
-<style>
-/* ===== 修复 xg-icons 首屏高度算死导致无滚动条 ===== */
-
-/* 1. 主区域不再锁死高度 */
-.main-content {
-  height: auto !important;
-  min-height: 100vh;
-}
-
-/* 2. 真正负责滚动的容器：强制开启纵向滚动 */
-.icon-scroll-area {
-  height: auto !important;
-  min-height: calc(100vh - 120px); /* 减去 header 大概高度，留点余量 */
-  overflow-y: auto !important;
-  -webkit-overflow-scrolling: touch; /* iOS 顺滑滚动 */
-}
-
-/* 3. 保险：body 也不要拦滚动 */
-html, body {
-  height: auto !important;
-  overflow-y: auto !important;
-}
-</style>
+<!-- The v0.8.1-1 inline height hack has been removed: forcing
+     height:auto !important on .main-content / .icon-scroll-area broke the
+     flex height chain, killed the desktop scrollbar and made the mobile
+     layout clip inside .app-container (overflow:hidden). Upstream CSS keeps
+     #iconScrollArea as a real scroll container on both layouts; the 0.8.3
+     progressive renderer now guarantees it always has enough content to
+     scroll. See static/script.js scheduleViewportFill(). -->
 </head>
 <body>
     <div class="desktop-wallpaper" aria-hidden="true"></div>

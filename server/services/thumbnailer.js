@@ -51,8 +51,10 @@ const config = Object.freeze({
     enabled: envBool('THUMB_ENABLED', true),
     // 目录监控开关（Docker Desktop 的 bind mount 常收不到 inotify 事件，靠定时扫库兜底）
     watch: envBool('THUMB_WATCH', true),
-    // 定时全量扫库间隔（秒），0 = 关闭；只靠目录监控时可设 0
-    scanIntervalSec: envInt('THUMB_SCAN_INTERVAL', 300, 0, 86400),
+    // 定时全量扫库间隔（秒），0 = 关闭；只靠目录监控时可设 0。
+    // 默认 60s：多个 bind mount 下 inotify 事件不一定完整，短间隔兜底更稳，
+    // 而一次全量对账只需几十到几百毫秒。
+    scanIntervalSec: envInt('THUMB_SCAN_INTERVAL', 60, 0, 86400),
     // 目录监控防抖（毫秒）：批量拖入文件、编辑器原子替换时避免频繁触发
     debounceMs: envInt('THUMB_WATCH_DEBOUNCE', 1200, 100, 60000),
     dir: path.resolve(process.env.THUMB_DIR || path.join(__dirname, '../../.thumbs')),

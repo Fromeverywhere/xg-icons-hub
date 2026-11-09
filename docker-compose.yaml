@@ -9,12 +9,15 @@ services:
       - "28080:5000"
     volumes:
       - ./images:/app/images
+      # 缩略图持久化：容器重建不必重新编码整库（首次仍会自动补齐）。
+      # 注意绝不要把 /app/thumbs 挂到 /app/images 下面，否则会污染原图目录。
+      - xg-thumbs:/app/thumbs
     environment:
       - SITE_NAME=xg-icons-hub
       # 缩略图：列表显示缩略图，点开预览 / 复制链接 / 下载 / 新窗口一律仍是原图
       - THUMB_ENABLED=true          # 总开关，false 时完全回退到原图
       - THUMB_WATCH=true            # 目录监控开关
-      - THUMB_SCAN_INTERVAL=300     # 定时全量扫库间隔（秒），0 = 关闭；bind mount 收不到事件时靠它兜底
+      - THUMB_SCAN_INTERVAL=60      # 定时全量扫库间隔（秒），0 = 关闭；多个 bind mount 下 inotify 可能不全，靠它兜底
       # 以下为可选微调（不设即用默认值）：
       # - THUMB_DIR=/app/thumbs             # 缩略图目录（容器内，务必与 /app/images 分开）
       # - THUMB_SIZE=128                    # 缩略图最大边长 px（卡片仅显示 52px，128 覆盖 2x 屏）
@@ -30,3 +33,6 @@ services:
       # - UMAMI_URL=https://cloud.umami.is
       # - UMAMI_SITE_ID=网站 ID
     restart: unless-stopped
+
+volumes:
+  xg-thumbs:

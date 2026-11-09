@@ -32,10 +32,15 @@ RUN tr -d '\r' < /usr/local/bin/docker-entrypoint.sh > /usr/local/bin/docker-ent
 # Thumbnails live in a container-local directory: bind mounts on /app/images can
 # neither hide them nor get polluted by generated files. All values below can be
 # overridden via `docker run -e` / compose `environment`.
+# 60s rather than 300s: with many per-category bind mounts, inotify events are
+# not guaranteed to cross every mount point. A full reconcile is cheap (~100ms
+# for a few hundred icons), so a shorter fallback is the safer default.
+# Linux hosts with a single mount can set THUMB_SCAN_INTERVAL=0 to rely on
+# fs.watch alone; Docker Desktop should keep it enabled.
 ENV THUMB_DIR=/app/thumbs \
     THUMB_ENABLED=true \
     THUMB_WATCH=true \
-    THUMB_SCAN_INTERVAL=300
+    THUMB_SCAN_INTERVAL=60
 
 EXPOSE 5000
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]

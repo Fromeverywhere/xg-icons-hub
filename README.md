@@ -43,6 +43,8 @@ services:
       - "28080:5000"
     volumes:
       - ./images:/app/images
+      # 缩略图持久化：容器重建不必重新编码整库（首次仍会自动补齐）
+      - xg-thumbs:/app/thumbs
     environment:
       - SITE_NAME=xg-icons-hub
       # 可选变量（按需打开）：
@@ -54,6 +56,9 @@ services:
       # - UMAMI_URL=https://cloud.umami.is
       # - UMAMI_SITE_ID=网站 ID
     restart: unless-stopped
+
+volumes:
+  xg-thumbs:
 ```
 
 - ghcr 镜像版，可改为 `ghcr.io/verkyer/xg-icons-hub:latest`
@@ -72,6 +77,7 @@ services:
 | 缩略图缺失或生成失败 | `/thumbs/...` 自动回源到 `/images/...` 原图；前端还有两级 `onerror` 兜底，不会出现破图 |
 
 - 缩略图放在**容器内** `/app/thumbs`，不写进宿主机挂载的 `./images`，也不会被挂载覆盖，原图标库零污染。
+- 默认每次重建容器会重新生成缩略图（几百张只需几秒）。要跨重建保留，按上面的 compose 示例挂一个 named volume 到 `/app/thumbs`；**不要**把它挂到 `/app/images` 下面，否则会污染原图目录。
 - 命名：`images/ai/ChatGPT.png` → `thumbs/ai/ChatGPT.png.webp`（保留原扩展名，避免 `a.png` 与 `a.webp` 撞名）。
 - 统一输出 WebP 并保留透明通道，最大边长默认 128px（卡片实际只显示 52px，足够 2x 屏）；PNG/JPG/GIF/SVG/WebP/AVIF 均可处理，GIF 取首帧，弹窗里仍是完整原图。
 - `.manifest.json` 记录每个原图生成时的 size/mtime：未变化的文件不会重复编码；改动 `THUMB_SIZE` / `THUMB_QUALITY` 会自动全量重建。
@@ -85,7 +91,7 @@ services:
 | --- | --- | --- |
 | `THUMB_ENABLED` | `true` | 缩略图总开关，设为 `false` 完全回退原图 |
 | `THUMB_WATCH` | `true` | 目录监控开关 |
-| `THUMB_SCAN_INTERVAL` | `300` | 定时全量扫库间隔（秒），`0` = 关闭 |
+| `THUMB_SCAN_INTERVAL` | `60` | 定时全量扫库间隔（秒），`0` = 关闭；多个 bind mount 下 inotify 事件可能不全，靠它兜底 |
 | `THUMB_DIR` | `/app/thumbs` | 缩略图目录，务必与 `/app/images` 分开 |
 | `THUMB_SIZE` | `128` | 缩略图最大边长 px（32–1024） |
 | `THUMB_QUALITY` | `75` | WebP 质量（10–100） |
@@ -94,7 +100,7 @@ services:
 
 完整示例见 [docker-compose.yaml](./docker-compose.yaml)，也可直接 `docker run -e THUMB_WATCH=false -e THUMB_SCAN_INTERVAL=0 ...`。
 
-> **Docker Desktop（Windows / macOS）注意**：bind mount 通常不会把宿主机的文件事件转发进容器，`fs.watch` 可能收不到变更。请保留定时扫库，并把 `THUMB_SCAN_INTERVAL` 调小（如 `60`）。只有 Linux 宿主机才建议设 `THUMB_SCAN_INTERVAL=0` 只依赖监控。
+> **多个 bind mount / Docker Desktop（Windows、macOS）注意**：目录按分类分别挂载时，跨挂载点的 inotify 事件不保证完整；Docker Desktop 的 bind mount 更是通常不转发宿主机文件事件。默认 `60` 秒的定时全量对账就是为此兜底（一次对账几十到几百毫秒）。只有「Linux 宿主机 + 单一挂载 + 已验证 `fs.watch` 生效」时才建议设 `THUMB_SCAN_INTERVAL=0` 纯靠监控。
 >
 > 随时手动重扫：`docker exec xg-icons-hub-dev node /app/server/thumbnail-cli.js`
 
