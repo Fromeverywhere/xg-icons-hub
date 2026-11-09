@@ -1,37 +1,56 @@
+# xg-icons-hub 部署示例
+#
+# 镜像同时发布在 Docker Hub 与 GitHub Container Registry (ghcr)，二选一即可。
+# 使用步骤：
+#   1) 把图标放到宿主机 ./images 下（结构：images/<分类>/<图标文件>）
+#   2) docker compose up -d
+#   3) 浏览器打开 http://<宿主机IP>:28080
+#
+# 所有环境变量都有内置默认值，下面默认全部注释；按需取消注释并修改即可。
+
 services:
   xg-icons-hub:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: xg-icons-hub:dev
-    container_name: xg-icons-hub-dev
+    # ============ 镜像源：二选一 ============
+    # ① Docker Hub（默认）
+    image: fromeverywhere/xg-icons-hub:0.8.4
+    # ② GitHub Container Registry：拉取 Docker Hub 慢/不通时改用这行
+    # image: ghcr.io/fromeverywhere/xg-icons-hub:0.8.4
+    #
+    # 如需本地自行构建：注释掉上面的 image，改用下面的 build
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
+
+    container_name: xg-icons-hub
     ports:
+      # 宿主机端口:容器端口；左侧 28080 可改成你要的端口
       - "28080:5000"
     volumes:
+      # 宿主机图标目录 -> 容器 /app/images（图标放在 images/<分类>/<文件>）
       - ./images:/app/images
-      # 缩略图持久化：容器重建不必重新编码整库（首次仍会自动补齐）。
-      # 注意绝不要把 /app/thumbs 挂到 /app/images 下面，否则会污染原图目录。
+      # 缩略图持久化 volume：容器重建不必重新编码整库（首次仍会自动补齐）
+      # 切勿把它挂到 /app/images 下面，否则会污染原图目录
       - xg-thumbs:/app/thumbs
     environment:
-      - SITE_NAME=xg-icons-hub
-      # 缩略图：列表显示缩略图，点开预览 / 复制链接 / 下载 / 新窗口一律仍是原图
-      - THUMB_ENABLED=true          # 总开关，false 时完全回退到原图
-      - THUMB_WATCH=true            # 目录监控开关
-      - THUMB_SCAN_INTERVAL=60      # 定时全量扫库间隔（秒），0 = 关闭；多个 bind mount 下 inotify 可能不全，靠它兜底
-      # 以下为可选微调（不设即用默认值）：
-      # - THUMB_DIR=/app/thumbs             # 缩略图目录（容器内，务必与 /app/images 分开）
-      # - THUMB_SIZE=128                    # 缩略图最大边长 px（卡片仅显示 52px，128 覆盖 2x 屏）
-      # - THUMB_QUALITY=75                  # WebP 质量 10-100
-      # - THUMB_CONCURRENCY=4               # 启动扫库并发数，避免一次吃满 CPU
-      # - THUMB_WATCH_DEBOUNCE=1200         # 目录监控防抖（毫秒）
-      # 站点可选变量（按需打开）：
-      # - LOGO_IMG=favicon.ico        # 路径或完整 URL
-      # - FAVICON=/static/favicon.ico
-      # - COPYRIGHT=HTML、文本
-      # - ICP=粤ICP备12345678号-1
-      # - SEO_DESC=站点描述
-      # - UMAMI_URL=https://cloud.umami.is
-      # - UMAMI_SITE_ID=网站 ID
+      # ==================== 站点显示 ====================
+      # - SITE_NAME=XG-icons                  # 站点名（浏览器标题 / 页面大标题），默认 XG-icons
+      # - LOGO_IMG=favicon.ico                # 页面 Logo：相对路径或完整 http(s) 链接，默认 favicon.ico
+      # - FAVICON=favicon.ico                 # 浏览器标签图标：相对路径或完整链接，默认 favicon.ico
+      # - COPYRIGHT=版权所有 © 2026           # 页脚版权（支持 HTML），默认项目版权声明
+      # - ICP=粤ICP备12345678号-1             # 备案号，设置后显示在版权信息下方
+      # - SEO_DESC=一个专注图标分享的站点      # <meta name="description">，默认项目简介
+      # - UMAMI_URL=https://cloud.umami.is    # Umami 统计地址（需与 UMAMI_SITE_ID 同时设置才生效）
+      # - UMAMI_SITE_ID=xxxxxxxx              # Umami 后台网站 ID
+      #
+      # ==================== 缩略图（默认开启，一般无需改）====================
+      # - THUMB_ENABLED=true                  # 总开关；false 时完全回退到原图
+      # - THUMB_WATCH=true                    # fs.watch 目录监控开关
+      # - THUMB_SCAN_INTERVAL=60              # 定时全量对账间隔（秒），0=关闭；多个 bind mount 时靠它兜底
+      # - THUMB_DIR=/app/thumbs               # 缩略图目录（容器内，务必与 /app/images 分开）
+      # - THUMB_SIZE=128                      # 缩略图最大边长 px（32-1024），默认 128
+      # - THUMB_QUALITY=75                    # WebP 质量（10-100），默认 75
+      # - THUMB_CONCURRENCY=4                 # 启动扫库并发数，默认 min(4, CPU 核数)
+      # - THUMB_WATCH_DEBOUNCE=1200           # 目录监控防抖（毫秒），默认 1200
     restart: unless-stopped
 
 volumes:

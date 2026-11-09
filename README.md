@@ -5,6 +5,8 @@
 
 ![demo](demo.webp)
 
+> 本仓库 Fork 自 [verkyer/xg-icons-hub](https://github.com/verkyer/xg-icons-hub)：修复了宽屏首屏只渲染一批、无滚动条的问题，并同时发布到 **Docker Hub** 与 **ghcr** 两个镜像源（见 [Docker 部署](#docker-部署)）。
+
 ## 快速部署
 
 Fork 本仓库到你的 GitHub 账号，图标路径 `/images` 下可替换为自己的图标，格式为：`/images/目录名/图标文件` 
@@ -30,38 +32,50 @@ Fork 本仓库到你的 GitHub 账号，图标路径 `/images` 下可替换为�
 
 ## Docker 部署
 
-宿主机图标路径：`./images` 、映射端口 `28080` 均可按需改动。
+镜像同时发布在 **Docker Hub** 与 **GitHub Container Registry (ghcr)**，两者内容一致，二选一即可：
 
-- Docker Hub 镜像：
+| 源 | 镜像地址 |
+| --- | --- |
+| Docker Hub | `fromeverywhere/xg-icons-hub:0.8.4` |
+| GitHub Container Registry | `ghcr.io/fromeverywhere/xg-icons-hub:0.8.4` |
+
+> 拉 Docker Hub 慢或不通时，把镜像换成 ghcr 那一行即可。宿主机图标路径 `./images`、映射端口 `28080` 均可按需改动；图标放在 `images/<分类>/<图标文件>`。
+
+### docker compose（推荐）
+
+仓库自带 [`docker-compose.yaml`](./docker-compose.yaml)，**所有环境变量都列在里面**（默认值已注释，取消注释即可改）。最小可用版：
 
 ```yaml
 services:
   xg-icons-hub:
-    image: verky/xg-icons-hub:latest
+    image: fromeverywhere/xg-icons-hub:0.8.4   # 或 ghcr.io/fromeverywhere/xg-icons-hub:0.8.4
     container_name: xg-icons-hub
     ports:
-      - "28080:5000"
+      - "28080:5000"                 # 左侧宿主机端口可按需改
     volumes:
-      - ./images:/app/images
-      # 缩略图持久化：容器重建不必重新编码整库（首次仍会自动补齐）
-      - xg-thumbs:/app/thumbs
-    environment:
-      - SITE_NAME=xg-icons-hub
-      # 可选变量（按需打开）：
-      # - LOGO_IMG=images/website/GitHub.png
-      # - FAVICON=/static/favicon.ico
-      # - COPYRIGHT=版权所有 © 2026
-      # - ICP=粤ICP备12345678号-1
-      # - SEO_DESC=站点描述
-      # - UMAMI_URL=https://cloud.umami.is
-      # - UMAMI_SITE_ID=网站 ID
+      - ./images:/app/images         # 宿主机图标目录
+      - xg-thumbs:/app/thumbs        # 缩略图持久化（别挂到 /app/images 下）
+    # environment:                   # 全部有默认值，按需取消注释：
+    #   - SITE_NAME=我的图标库
+    #   - THUMB_SCAN_INTERVAL=60
     restart: unless-stopped
 
 volumes:
   xg-thumbs:
 ```
 
-- ghcr 镜像版，可改为 `ghcr.io/verkyer/xg-icons-hub:latest`
+### docker run（不想用 compose）
+
+```bash
+docker run -d --name xg-icons-hub \
+  -p 28080:5000 \
+  -v "$PWD/images:/app/images" \
+  -v xg-thumbs:/app/thumbs \
+  -e SITE_NAME="我的图标库" \
+  --restart unless-stopped \
+  fromeverywhere/xg-icons-hub:0.8.4
+# 或改用 ghcr 源： ghcr.io/fromeverywhere/xg-icons-hub:0.8.4
+```
 
 ## 缩略图与目录监控（Docker）
 
@@ -114,14 +128,16 @@ volumes:
 
 > 缩略图相关的 Docker 变量见上一节；以下为站点显示类变量。
 
-- `SITE_NAME`：站点名称（浏览器标签标题、页面大标题）
-- `LOGO_IMG`：页面内 Logo 图（支持完整 `http(s)` 链接或相对路径，如 `images/website/GitHub.png`）
-- `FAVICON`：浏览器标签图标（支持完整链接或相对路径；未设置时默认使用 `/static/favicon.ico`）
-- `COPYRIGHT`：页脚版权信息（HTML 文本）
-- `ICP`：备案号文本；设置后显示在版权信息下方，未设置则不显示
-- `SEO_DESC`：页面 `<meta name="description">` 文本
-- `UMAMI_URL`：Umami 服务根地址；官方托管填写 `https://cloud.umami.is`，自托管填写自己的 Umami 地址
-- `UMAMI_SITE_ID`：Umami 后台的网站 ID；与 `UMAMI_URL` 同时设置后，跟踪代码会自动注入页面 `<head>`
+| 变量 | 默认值 | 说明 |
+| --- | --- | --- |
+| `SITE_NAME` | `XG-icons` | 站点名称（浏览器标题、页面大标题） |
+| `LOGO_IMG` | `favicon.ico` | 页面内 Logo，支持完整 `http(s)` 链接或相对路径（如 `images/website/GitHub.png`） |
+| `FAVICON` | `favicon.ico` | 浏览器标签图标，支持完整链接或相对路径 |
+| `COPYRIGHT` | 项目版权声明 | 页脚版权信息（HTML 文本） |
+| `ICP` | （空） | 备案号文本，设置后显示在版权信息下方 |
+| `SEO_DESC` | 项目简介 | 页面 `<meta name="description">` 文本 |
+| `UMAMI_URL` | （空） | Umami 服务根地址；官方托管填 `https://cloud.umami.is`，自托管填自己的地址 |
+| `UMAMI_SITE_ID` | （空） | Umami 后台网站 ID；与 `UMAMI_URL` 同时设置后注入跟踪代码 |
 
 > `UMAMI_URL`、`UMAMI_SITE_ID` 需要同时设置才会启用统计
 
@@ -136,7 +152,7 @@ volumes:
 ```yaml
 services:
   xg-icons-hub:
-    image: verky/xg-icons-hub:latest
+    image: fromeverywhere/xg-icons-hub:0.8.4   # 或 ghcr.io/fromeverywhere/xg-icons-hub:0.8.4
     container_name: xg-icons-hub
     ports:
       - "28080:5000"
