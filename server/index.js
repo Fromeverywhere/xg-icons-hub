@@ -76,7 +76,81 @@ app.use((req, res, next) => {
 app.use(cors({ origin: '*', methods: ['GET', 'HEAD', 'OPTIONS'] }));
 
 // Static Files - Core Requirement: /images path must remain stable
-// 原图路径与 URL 一律保持原样：外链、复制、下载、弹窗预览都走这里
+// ---------------------------------------------------------------- 防盗链
+// 目标：不让第三方站点把本站图片当图床内嵌，同时不影响正常使用。
+// 放行：本站页面引用（<img>/弹窗/下载按钮/新窗口）、地址栏直开、右键另存为、白名单域名。
+// 拦截：外部 Referer 的内嵌请求；浏览器标记 cross-site 且非顶层导航的请求
+//       （可挡住 referrerpolicy="no-referrer" 这类绕过）。
+function envFlag(name, fallback) {
+    const raw = process.env[name];
+    if (raw === undefined || String(raw).trim() === '') return fallback;
+    return !['0', 'false', 'no', 'off'].includes(String(raw).trim().toLowerCase());
+}
+
+const HOTLINK = {
+    enabled: envFlag('HOTLINK_PROTECTION', true),
+    // 允许"没有 Referer"的请求（地址栏直开 / 另存为 / curl 下载）。
+    // 设为 false 可更严格，但会让直接粘贴图片地址打开、从新标签页另存为失效。
+    allowEmptyReferer: envFlag('HOTLINK_ALLOW_EMPTY_REFERER', true),
+    // 额外放行的来源域名，逗号分隔，例如 img.example.com,blog.example.com
+    allowedHosts: new Set(
+        String(process.env.HOTLINK_ALLOWED_HOSTS || '')
+            .split(',').map((h) => h.trim().toLowerCase()).filter(Boolean)
+    )
+};
+
+let hotlinkBlockCount = 0;
+
+function hostOf(value) {
+    try { return new URL(value).host.toLowerCase(); } catch { return ''; }
+}
+
+function blockHotlink(req, res, source) {
+    if (hotlinkBlockCount < 20) {
+        hotlinkBlockCount += 1;
+        console.warn(`[hotlink] blocked ${req.method} ${req.originalUrl} <- ${source}`);
+    }
+    res.setHeader('Cache-Control', 'no-store');
+    res.status(403).type('text/plain; charset=utf-8')
+        .send('Hotlink protection: please view this image on the original site.');
+}
+
+function hotlinkGuard(req, res, next) {
+    if (!HOTLINK.enabled) return next();
+
+    // 响应取决于 Referer，避免共享缓存把 403 或 200 串味
+    res.setHeader('Vary', 'Referer');
+
+    const ownHost = String(req.headers.host || '').toLowerCase();
+    const referer = req.get('referer') || '';
+    const refererHost = referer ? hostOf(referer) : '';
+    const fetchSite = String(req.headers['sec-fetch-site'] || '').toLowerCase();
+    const fetchDest = String(req.headers['sec-fetch-dest'] || '').toLowerCase();
+
+    // 1. 本站或白名单来源：放行
+    if (refererHost && (refererHost === ownHost || HOTLINK.allowedHosts.has(refererHost))) return next();
+
+    // 2. 顶层导航（用户点链接直接打开图片，或地址栏访问）：放行，属人工查看
+    if (fetchDest === 'document') return next();
+
+    // 3. 外部 Referer 的内嵌请求：拦截
+    if (refererHost) return blockHotlink(req, res, refererHost);
+
+    // 4. 带了 Referer 却解析不出主机名（畸形值）：不放行，避免靠畸形头绕过
+    if (referer && !refererHost) return blockHotlink(req, res, 'malformed-referer');
+
+    // 5. 无 Referer 但浏览器明确标记 cross-site（含 no-referrer 外链）：拦截
+    if (fetchSite === 'cross-site') return blockHotlink(req, res, 'cross-site');
+
+    // 6. 无 Referer 且非内嵌：地址栏直开 / 另存为 / 客户端下载
+    if (HOTLINK.allowEmptyReferer) return next();
+    return blockHotlink(req, res, 'empty-referer');
+}
+
+// 原图与缩略图都受保护；/static 的 js/css 不受影响
+app.use(['/images', '/thumbs'], hotlinkGuard);
+
+// 原图路径与 URL 一律保持原样：下载、另存为、新窗口打开、弹窗预览都走这里
 app.use('/images', express.static(path.join(__dirname, '../images')));
 
 // 列表缩略图：只在容器内部生成，不落进 /app/images（不会污染宿主机图标库）
@@ -138,5 +212,9 @@ app.listen(PORT, () => {
     console.log(`- Icons:  http://localhost:${PORT}/images`);
     console.log(`- Thumbs: http://localhost:${PORT}/thumbs`);
     console.log(`- API:    http://localhost:${PORT}/api/icons.json`);
+    console.log(HOTLINK.enabled
+        ? `- Hotlink protection: ON (empty referer: ${HOTLINK.allowEmptyReferer ? 'allow' : 'block'}` +
+          `${HOTLINK.allowedHosts.size ? `, allowed: ${[...HOTLINK.allowedHosts].join(',')}` : ''})`
+        : '- Hotlink protection: OFF');
     thumbnailer.start();
 });

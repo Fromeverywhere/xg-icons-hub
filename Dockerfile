@@ -44,7 +44,8 @@ ENV NODE_ENV=production \
     THUMB_DIR=/app/thumbs \
     THUMB_ENABLED=true \
     THUMB_WATCH=true \
-    THUMB_SCAN_INTERVAL=60
+    THUMB_SCAN_INTERVAL=60 \
+    HOTLINK_PROTECTION=true
 
 EXPOSE 5000
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]

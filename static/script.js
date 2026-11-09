@@ -279,7 +279,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const displayName = filename.replace(/\.[^/.]+$/, '');
                 if (query && !displayName.toLowerCase().includes(query)) return;
 
-                // url 始终是原图：复制链接、下载、新窗口打开、弹窗预览全部用它，行为与旧版一致。
+                // url 始终是原图：下载、新窗口打开、弹窗预览都用它，行为与旧版一致。
                 // thumbUrl 仅由列表卡片使用，由服务端注入的开关决定是否启用。
                 const origin = window.location.origin;
                 const encodedCategory = encodeURIComponent(cat.name);
@@ -478,7 +478,8 @@ document.addEventListener('DOMContentLoaded', () => {
             window.__xgOpenModal(item, filteredIcons, index);
             return;
         }
-        copyToClipboard(item.url, item.displayName);
+        // 弹窗脚本未加载时的兜底：直接在新窗口打开原图（不再提供复制链接）
+        window.open(item.url, '_blank', 'noopener');
     }
 
     // 5. Search
@@ -513,29 +514,6 @@ document.addEventListener('DOMContentLoaded', () => {
             focusSearch();
         }
     });
-
-    // 6. Copy to Clipboard
-    async function copyToClipboard(text, label) {
-        try {
-            await navigator.clipboard.writeText(text);
-            showToast(`已复制：${label || text}`, 'success');
-        } catch (err) {
-            console.error('Failed to copy: ', err);
-            // Fallback
-            const textArea = document.createElement("textarea");
-            textArea.value = text;
-            document.body.appendChild(textArea);
-            textArea.select();
-            let copied = false;
-            try {
-                copied = document.execCommand("Copy");
-            } catch (fallbackError) {
-                console.error('Fallback copy failed: ', fallbackError);
-            }
-            textArea.remove();
-            showToast(copied ? `已复制：${label || text}` : '复制失败，请重试', copied ? 'success' : 'error');
-        }
-    }
 
     const toastIcons = {
         success: '<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>',

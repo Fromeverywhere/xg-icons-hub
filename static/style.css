@@ -1319,19 +1319,6 @@ button {
     flex: 0 0 16px;
 }
 
-.icon-modal-copy {
-    border-color: var(--accent-color);
-    background: var(--accent-color);
-    box-shadow: 0 1px 3px rgba(0, 83, 171, 0.2);
-    color: var(--accent-text);
-}
-
-.icon-modal-copy:hover {
-    border-color: var(--accent-hover);
-    background: var(--accent-hover);
-    color: var(--accent-text);
-}
-
 .icon-modal-download {
     background: var(--card-bg);
     color: var(--text-color);

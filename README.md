@@ -79,7 +79,7 @@ docker run -d --name xg-icons-hub \
 
 ## 缩略图与目录监控（Docker）
 
-默认开启。图标列表只加载轻量的 WebP 缩略图，**点开弹窗才请求原图**；复制链接、下载图标、新窗口打开、弹窗预览全部仍指向 `/images/...` 原图，对外链接与改造前完全兼容。
+默认开启。图标列表只加载轻量的 WebP 缩略图，**点开弹窗才请求原图**；下载按钮、新窗口打开、弹窗预览全部仍指向 `/images/...` 原图，对外链接与改造前完全兼容。
 
 ### 工作方式
 
@@ -123,6 +123,28 @@ docker run -d --name xg-icons-hub \
 `THUMB_ENABLED=false` 时前端直接请求原图，行为与改造前一致。若镜像里 `sharp` 没装好（例如多架构构建缺少对应预编译二进制），服务会自动检测并关闭缩略图，站点不会报错，只是退回原图。
 
 > Cloudflare Pages / EdgeOne Pages 等静态部署不运行 Node 服务，`dist` 中 `THUMB_ENABLED=false`，列表继续用原图，行为不变。
+
+## 防盗链
+
+默认开启，用于阻止第三方站点把本站图片当图床直接内嵌（`<img>`、CSS 背景图、iframe 等）。只作用于 `/images`（原图）与 `/thumbs`（缩略图），不影响 `/static` 的 JS/CSS。
+
+| 场景 | 结果 |
+| --- | --- |
+| 本站页面显示图标（列表 / 弹窗 / 下载按钮 / 新窗口打开） | ✅ 放行 |
+| 地址栏直接打开图片地址、右键「另存为」 | ✅ 放行（默认） |
+| 其他站点页面里 `<img src="你的域名/images/...">` | ⛔ 403 |
+| 其他站点用 `referrerpolicy="no-referrer"` 绕过 Referer | ⛔ 403（依据 `Sec-Fetch-Site: cross-site`） |
+| 从别的站点点链接跳到图片本身（顶层导航） | ✅ 放行（属人工查看，不是内嵌） |
+
+| 变量 | 默认值 | 说明 |
+| --- | --- | --- |
+| `HOTLINK_PROTECTION` | `true` | 总开关，设为 `false` 完全关闭 |
+| `HOTLINK_ALLOW_EMPTY_REFERER` | `true` | 是否放行不带 `Referer` 的请求。设为 `false` 更严格，但会挡住「粘贴图片地址直接打开」和部分另存为场景 |
+| `HOTLINK_ALLOWED_HOSTS` | （空） | 额外放行的来源域名，逗号分隔，如 `img.example.com,blog.example.com`。自己有站点要引用本站图片时用 |
+
+触发拦截时返回 `403` 与一行纯文本，并在容器日志里输出前 20 条 `[hotlink] blocked ...` 方便排查（不会无上限刷日志）。
+
+> 说明：防盗链基于 `Referer` / `Sec-Fetch-*` 判定，属于「防普通滥用」而非强安全边界。直接用 `curl` 或不带任何请求头的客户端仍可下载单张图片——这是为了保证「另存为 / 直接打开」可用的必然取舍。若要更严，可把 `HOTLINK_ALLOW_EMPTY_REFERER=false`，或在前置反向代理（Nginx / Cloudflare）层再加一层规则。
 
 ## 环境变量（站点）
 

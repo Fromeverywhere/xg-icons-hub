@@ -14,7 +14,6 @@
     let formatEl = null;
     let catEl = null;
     let categoryBtn = null;
-    let copyBtn = null;
     let downloadLink = null;
     let appWindow = null;
     let lastFocus = null;
@@ -66,9 +65,6 @@
             '<img alt="" fetchpriority="high" draggable="false" />' +
             '</div>' +
             '<div class="icon-modal-actions">' +
-            '<button class="icon-modal-btn icon-modal-copy" type="button">' +
-            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>' +
-            '<span>复制链接</span></button>' +
             '<a class="icon-modal-btn icon-modal-download" download>' +
             '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>' +
             '<span>下载图标</span></a>' +
@@ -88,7 +84,6 @@
         formatEl = modalEl.querySelector('.icon-modal-format');
         catEl = modalEl.querySelector('.icon-modal-cat');
         categoryBtn = modalEl.querySelector('.icon-modal-category');
-        copyBtn = modalEl.querySelector('.icon-modal-copy');
         downloadLink = modalEl.querySelector('.icon-modal-download');
 
         modalEl.querySelector('.icon-modal-close').addEventListener('click', close);
@@ -96,7 +91,6 @@
             if (event.target === overlayEl) close();
         });
         document.addEventListener('keydown', onKeydown);
-        copyBtn.addEventListener('click', onCopy);
         previewToggle.addEventListener('click', togglePreviewTheme);
         categoryBtn.addEventListener('click', openCategory);
         previousButton.addEventListener('click', () => navigate(-1));
@@ -176,35 +170,6 @@
         }
     }
 
-    function onCopy() {
-        const url = copyBtn.dataset.url || '';
-        const name = nameEl.textContent || '';
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(url).then(function () {
-                toast('已复制：' + name, 'success');
-            }).catch(function () {
-                const copied = legacyCopy(url);
-                toast(copied ? '已复制：' + name : '复制失败，请重试', copied ? 'success' : 'error');
-            });
-        } else {
-            const copied = legacyCopy(url);
-            toast(copied ? '已复制：' + name : '复制失败，请重试', copied ? 'success' : 'error');
-        }
-    }
-
-    function legacyCopy(text) {
-        const textarea = document.createElement('textarea');
-        textarea.value = text;
-        textarea.style.position = 'fixed';
-        textarea.style.opacity = '0';
-        document.body.appendChild(textarea);
-        textarea.select();
-        let copied = false;
-        try { copied = document.execCommand('copy'); } catch (error) {}
-        document.body.removeChild(textarea);
-        return copied;
-    }
-
     function toast(message, type) {
         if (window.__xgToast) window.__xgToast(message, type);
     }
@@ -232,7 +197,6 @@
         categoryBtn.dataset.category = category;
         categoryBtn.dataset.filename = filename || '';
         categoryBtn.setAttribute('aria-label', `跳转到 ${category} 分类`);
-        copyBtn.dataset.url = url;
         downloadLink.href = url;
         downloadLink.setAttribute('download', filename || displayName);
         openInNewWindowLink.href = url;

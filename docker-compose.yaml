@@ -51,6 +51,17 @@ services:
       # - THUMB_QUALITY=75                    # WebP 质量（10-100），默认 75
       # - THUMB_CONCURRENCY=4                 # 启动扫库并发数，默认 min(4, CPU 核数)
       # - THUMB_WATCH_DEBOUNCE=1200           # 目录监控防抖（毫秒），默认 1200
+      #
+      # ==================== 防盗链 ====================
+      # 默认开启：阻止第三方站点把本站图片当图床直接内嵌（<img>/背景图/iframe）。
+      # 不影响本站浏览、下载按钮、右键另存为、地址栏直接打开图片。
+      # - HOTLINK_PROTECTION=true             # 总开关，默认 true；设为 false 完全关闭
+      # - HOTLINK_ALLOW_EMPTY_REFERER=true    # 是否放行"不带 Referer"的请求（默认 true）
+      #                                       # false 更严格，但会挡住直接粘贴图片地址打开、
+      #                                       # 以及从新标签页另存为
+      # - HOTLINK_ALLOWED_HOSTS=img.example.com,blog.example.com
+      #                                       # 额外放行的来源域名（逗号分隔），
+      #                                       # 适合自己有站点要引用本站图片的场景
     restart: unless-stopped
 
 volumes:
