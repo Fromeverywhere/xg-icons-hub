@@ -39,7 +39,7 @@ Fork 本仓库到你的 GitHub 账号，图标路径 `/images` 下可替换为�
 | Docker Hub | `fromeverywhere/xg-icons-hub:0.8.4` |
 | GitHub Container Registry | `ghcr.io/fromeverywhere/xg-icons-hub:0.8.4` |
 
-> 拉 Docker Hub 慢或不通时，把镜像换成 ghcr 那一行即可。宿主机图标路径 `./images`、映射端口 `28080` 均可按需改动；图标放在 `images/<分类>/<图标文件>`。
+> 拉 Docker Hub 慢或不通时，把镜像换成 ghcr 那一行即可。两个源都同时提供 `0.8.4`（固定版本）与 `latest`（跟随最新发布）两个标签。宿主机图标路径 `./images`、映射端口 `28080` 均可按需改动；图标放在 `images/<分类>/<图标文件>`。
 
 ### docker compose（推荐）
 
