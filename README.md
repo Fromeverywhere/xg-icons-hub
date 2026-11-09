@@ -161,6 +161,14 @@ services:
 
 > 适用于仅需要「项目自带图标」，无自行图标托管需求的场景
 
+## 安全
+
+- **输出转义**：所有来自环境变量的展示文本按上下文转义——标题/页脚文字做 HTML 文本转义，Logo / Favicon / SEO 描述做属性转义；`COPYRIGHT` 按设计仍按 HTML 渲染（如需纯文本请自行转义）。
+- **安全响应头**：默认返回 `X-Content-Type-Options: nosniff`、`X-Frame-Options: SAMEORIGIN`、`Referrer-Policy`、`Permissions-Policy` 与 CSP。内联启动脚本使用**每请求 nonce**，`script-src` 不含 `unsafe-inline`，并仅额外放行 Umami 实际来源。
+- **路径穿越**：`/thumbs/*` 回源与 `/images` 静态服务都做了目录边界校验，无法越出图标目录。
+- **非 root 运行**：入口脚本先以 root 完成初始化（创建 `/app/images`、拷贝内置图标），随后若 `node` 用户可读 `/app/images` 就自动降权；若挂载目录权限过严（如 `root:root 0700`）则回退 root 并打印警告。想启用非 root，确保宿主机 `./images` 对 UID 1000 可读（如 `chmod -R a+rX ./images`）。
+- **依赖**：`npm audit` 当前 0 漏洞（`sharp` ≥ 0.35.5）；建议部署前定期复查。
+
 ## 说明
 - 构建脚本：[build.js](./build.js) 使用 Node.js 内置模块，将图标数据生成为静态 JSON（`/api/icons.json`、`/api/config.json`），以及复制资源至 `dist`。
 - 前端通过静态接口加载数据：[static/script.js](./static/script.js)，弹窗交互见 [static/modal.js](./static/modal.js)。

@@ -25,6 +25,19 @@ document.addEventListener('DOMContentLoaded', () => {
     let viewportFillFrame = 0;
     let allCategoryRenderedCount = 0;
 
+    // Escape untrusted text before it is inserted through innerHTML. Category
+    // and file names come from the filesystem and may legitimately contain
+    // characters such as <, > or " — they must never be parsed as markup.
+    function escapeHtml(value) {
+        return String(value).replace(/[&<>"']/g, (char) => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;'
+        })[char]);
+    }
+
     // 0. Fetch Config
     async function fetchConfig() {
         try {
@@ -57,12 +70,19 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (faviconLink) faviconLink.href = faviconSrc;
 
-            // Update Footer
+            // Update Footer. COPYRIGHT is trusted HTML by design; ICP is plain
+            // text from config and must be escaped before it reaches innerHTML
+            // (otherwise it would bypass the server-side escaping).
+            const icpHtml = config.ICP
+                ? `<br><a id="icpLink" href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer nofollow">${escapeHtml(config.ICP)}</a>`
+                : '';
+            const footerHtml = (config.COPYRIGHT || '') + icpHtml;
+
             const siteFooter = document.getElementById('siteFooter');
-            if (siteFooter) siteFooter.innerHTML = config.COPYRIGHT + (config.ICP ? `<br><a id="icpLink" href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer nofollow">${config.ICP}</a>` : '');
-            
+            if (siteFooter) siteFooter.innerHTML = footerHtml;
+
             const mobileFooter = document.getElementById('mobileFooter');
-            if (mobileFooter) mobileFooter.innerHTML = config.COPYRIGHT + (config.ICP ? `<br><a id="icpLink" href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer nofollow">${config.ICP}</a>` : '');
+            if (mobileFooter) mobileFooter.innerHTML = footerHtml;
             
             const descTag = document.querySelector('meta[name="description"]');
             if (descTag && config.SEO_DESC) descTag.setAttribute('content', config.SEO_DESC);
@@ -118,7 +138,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const siteTitleEl = document.getElementById('siteTitle');
 
     function categoryItemMarkup(label, count) {
-        return `<button type="button" class="menu-link"><span class="menu-label">${label}</span><span class="menu-count">${count}</span></button>`;
+        return `<button type="button" class="menu-link"><span class="menu-label">${escapeHtml(label)}</span><span class="menu-count">${escapeHtml(count)}</span></button>`;
     }
 
     function renderCategories() {
@@ -423,10 +443,11 @@ document.addEventListener('DOMContentLoaded', () => {
         div.setAttribute('role', 'button');
         div.setAttribute('tabindex', '0');
 
+        const safeName = escapeHtml(displayName);
         div.innerHTML = `
             <div class="icon-img-wrapper"></div>
-            <div class="icon-name" title="${displayName}">
-                <span>${displayName}</span>
+            <div class="icon-name" title="${safeName}">
+                <span>${safeName}</span>
             </div>
         `;
 

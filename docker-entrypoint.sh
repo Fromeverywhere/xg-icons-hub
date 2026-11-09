@@ -31,4 +31,16 @@ if [ "${THUMB_ENABLED:-true}" != "false" ]; then
     echo "Thumbnail sync will run in the background after startup."
 fi
 
+# Drop privileges when possible. The initialisation above (creating /app/images,
+# copying the bundled icons) needs root, but the web server itself does not.
+# If the mounted image directory is not readable by the unprivileged `node`
+# user (e.g. a bind mount owned by root with 0700), fall back to running as
+# root so existing deployments keep working instead of serving an empty site.
+if [ "$(id -u)" = "0" ] && command -v su-exec >/dev/null 2>&1; then
+    if su-exec node sh -c 'test -r /app/images && test -x /app/images' 2>/dev/null; then
+        exec su-exec node "$@"
+    fi
+    echo "Warning: /app/images is not readable by the 'node' user; running as root. Adjust the mount permissions to enable the non-root user." >&2
+fi
+
 exec "$@"

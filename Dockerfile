@@ -3,7 +3,7 @@ WORKDIR /app
 
 # Install dependencies without running lifecycle scripts
 COPY package*.json ./
-RUN npm install --progress=false --ignore-scripts
+RUN npm install --progress=false --ignore-scripts --no-audit --no-fund
 
 # sharp ships prebuilt libvips binaries as optional dependencies. This is a soft
 # check only: if a binary is missing (e.g. under QEMU multi-arch builds) the image
@@ -27,7 +27,10 @@ COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 # so the build works regardless of the host's core.autocrlf setting.
 RUN tr -d '\r' < /usr/local/bin/docker-entrypoint.sh > /usr/local/bin/docker-entrypoint.lf \
     && mv /usr/local/bin/docker-entrypoint.lf /usr/local/bin/docker-entrypoint.sh \
-    && chmod +x /usr/local/bin/docker-entrypoint.sh
+    && chmod +x /usr/local/bin/docker-entrypoint.sh \
+    && apk add --no-cache su-exec \
+    && mkdir -p /app/thumbs \
+    && chown -R node:node /app/thumbs
 
 # Thumbnails live in a container-local directory: bind mounts on /app/images can
 # neither hide them nor get polluted by generated files. All values below can be
@@ -37,7 +40,8 @@ RUN tr -d '\r' < /usr/local/bin/docker-entrypoint.sh > /usr/local/bin/docker-ent
 # for a few hundred icons), so a shorter fallback is the safer default.
 # Linux hosts with a single mount can set THUMB_SCAN_INTERVAL=0 to rely on
 # fs.watch alone; Docker Desktop should keep it enabled.
-ENV THUMB_DIR=/app/thumbs \
+ENV NODE_ENV=production \
+    THUMB_DIR=/app/thumbs \
     THUMB_ENABLED=true \
     THUMB_WATCH=true \
     THUMB_SCAN_INTERVAL=60
