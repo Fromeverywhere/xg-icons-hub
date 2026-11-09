@@ -36,10 +36,10 @@ Fork 本仓库到你的 GitHub 账号，图标路径 `/images` 下可替换为�
 
 | 源 | 镜像地址 |
 | --- | --- |
-| Docker Hub | `fromeverywhere/xg-icons-hub:0.8.4` |
-| GitHub Container Registry | `ghcr.io/fromeverywhere/xg-icons-hub:0.8.4` |
+| Docker Hub | `fromeverywhere/xg-icons-hub:0.8.5` |
+| GitHub Container Registry | `ghcr.io/fromeverywhere/xg-icons-hub:0.8.5` |
 
-> 拉 Docker Hub 慢或不通时，把镜像换成 ghcr 那一行即可。两个源都同时提供 `0.8.4`（固定版本）与 `latest`（跟随最新发布）两个标签。宿主机图标路径 `./images`、映射端口 `28080` 均可按需改动；图标放在 `images/<分类>/<图标文件>`。
+> 拉 Docker Hub 慢或不通时，把镜像换成 ghcr 那一行即可。两个源都同时提供 `0.8.5`（固定版本）与 `latest`（跟随最新发布）两个标签。宿主机图标路径 `./images`、映射端口 `28080` 均可按需改动；图标放在 `images/<分类>/<图标文件>`。
 
 ### docker compose（推荐）
 
@@ -48,7 +48,7 @@ Fork 本仓库到你的 GitHub 账号，图标路径 `/images` 下可替换为�
 ```yaml
 services:
   xg-icons-hub:
-    image: fromeverywhere/xg-icons-hub:0.8.4   # 或 ghcr.io/fromeverywhere/xg-icons-hub:0.8.4
+    image: fromeverywhere/xg-icons-hub:0.8.5   # 或 ghcr.io/fromeverywhere/xg-icons-hub:0.8.5
     container_name: xg-icons-hub
     ports:
       - "28080:5000"                 # 左侧宿主机端口可按需改
@@ -73,8 +73,8 @@ docker run -d --name xg-icons-hub \
   -v xg-thumbs:/app/thumbs \
   -e SITE_NAME="我的图标库" \
   --restart unless-stopped \
-  fromeverywhere/xg-icons-hub:0.8.4
-# 或改用 ghcr 源： ghcr.io/fromeverywhere/xg-icons-hub:0.8.4
+  fromeverywhere/xg-icons-hub:0.8.5
+# 或改用 ghcr 源： ghcr.io/fromeverywhere/xg-icons-hub:0.8.5
 ```
 
 ## 缩略图与目录监控（Docker）
@@ -152,7 +152,7 @@ docker run -d --name xg-icons-hub \
 ```yaml
 services:
   xg-icons-hub:
-    image: fromeverywhere/xg-icons-hub:0.8.4   # 或 ghcr.io/fromeverywhere/xg-icons-hub:0.8.4
+    image: fromeverywhere/xg-icons-hub:0.8.5   # 或 ghcr.io/fromeverywhere/xg-icons-hub:0.8.5
     container_name: xg-icons-hub
     ports:
       - "28080:5000"

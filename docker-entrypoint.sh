@@ -37,10 +37,16 @@ fi
 # user (e.g. a bind mount owned by root with 0700), fall back to running as
 # root so existing deployments keep working instead of serving an empty site.
 if [ "$(id -u)" = "0" ] && command -v su-exec >/dev/null 2>&1; then
-    if su-exec node sh -c 'test -r /app/images && test -x /app/images' 2>/dev/null; then
+    # /app/thumbs may come from a volume that was created while an earlier
+    # release still ran as root. Take it over so thumbnail writes keep working
+    # after the switch to the unprivileged user.
+    if [ -d /app/thumbs ]; then
+        chown -R node:node /app/thumbs 2>/dev/null || true
+    fi
+    if su-exec node sh -c 'test -r /app/images && test -x /app/images && test -w /app/thumbs' 2>/dev/null; then
         exec su-exec node "$@"
     fi
-    echo "Warning: /app/images is not readable by the 'node' user; running as root. Adjust the mount permissions to enable the non-root user." >&2
+    echo "Warning: /app/images or /app/thumbs is not writable by the 'node' user; running as root. Adjust the mount permissions to enable the non-root user." >&2
 fi
 
 exec "$@"
