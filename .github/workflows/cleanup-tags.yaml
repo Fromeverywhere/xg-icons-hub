@@ -1,0 +1,81 @@
+name: Delete image tags
+
+# 一次性运维工具：删除误推的镜像标签（两端同时删）。
+# 只按 tag 删除，且拒绝删除 latest 与纯数字版本号，避免误伤正常发布。
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "要删除的标签（不能是 latest 或版本号如 0.8.5）"
+        required: true
+      targets:
+        description: "both / hub / ghcr"
+        required: false
+        default: both
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  delete:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Guard
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          case "$TAG" in
+            latest|main|master) echo "::error::refuse to delete '$TAG'"; exit 1 ;;
+          esac
+          if [[ "$TAG" =~ ^v?[0-9]+\.[0-9]+ ]]; then
+            echo "::error::refuse to delete version tag '$TAG'"; exit 1
+          fi
+          echo "will delete tag: $TAG"
+
+      - name: Delete from GHCR
+        if: inputs.targets == 'both' || inputs.targets == 'ghcr'
+        env:
+          TAG: ${{ inputs.tag }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          OWNER="${OWNER,,}"
+          TOK=$(curl -s -u "${GITHUB_ACTOR}:${GH_TOKEN}" \
+            "https://ghcr.io/token?service=ghcr.io&scope=repository:${OWNER}/xg-icons-hub:delete,pull" \
+            | jq -r .token)
+          D=$(curl -s -o /dev/null -D - -H "Authorization: Bearer $TOK" \
+              -H "Accept: application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json" \
+              "https://ghcr.io/v2/${OWNER}/xg-icons-hub/manifests/${TAG}" \
+              | tr -d '\r' | grep -i '^docker-content-digest:' | awk '{print $2}')
+          echo "ghcr ${TAG} -> ${D:-not found}"
+          [ -z "$D" ] && { echo "ghcr: nothing to delete"; exit 0; }
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X DELETE -H "Authorization: Bearer $TOK" \
+                 "https://ghcr.io/v2/${OWNER}/xg-icons-hub/manifests/${D}")
+          echo "ghcr delete -> HTTP $code"
+          [ "$code" = "202" ] || [ "$code" = "200" ] || exit 1
+
+      - name: Delete from Docker Hub
+        if: inputs.targets == 'both' || inputs.targets == 'hub'
+        env:
+          TAG: ${{ inputs.tag }}
+          HUB_USER: ${{ secrets.DOCKERHUB_USERNAME }}
+          HUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          JWT=$(curl -s -H 'Content-Type: application/json' \
+            -d "{\"username\":\"${HUB_USER}\",\"password\":\"${HUB_TOKEN}\"}" \
+            https://hub.docker.com/v2/users/login | jq -r .token)
+          [ -n "$JWT" ] && [ "$JWT" != "null" ] || { echo "::error::hub login failed"; exit 1; }
+          code=$(curl -s -o /tmp/hub_del.json -w '%{http_code}' -X DELETE \
+                 -H "Authorization: Bearer $JWT" \
+                 "https://hub.docker.com/v2/repositories/${HUB_USER}/xg-icons-hub/tags/${TAG}/")
+          echo "hub delete ${TAG} -> HTTP $code"
+          cat /tmp/hub_del.json || true
+          [ "$code" = "204" ] || [ "$code" = "200" ] || exit 1
+
+      - name: Summary
+        run: echo "deleted tag \`${{ inputs.tag }}\` from ${{ inputs.targets }}" >> "$GITHUB_STEP_SUMMARY"

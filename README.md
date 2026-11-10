@@ -183,6 +183,54 @@ services:
 
 > 适用于仅需要「项目自带图标」，无自行图标托管需求的场景
 
+## 自动构建与发布
+
+镜像由 GitHub Actions 构建，**一次构建同时推两个仓库**，因此 Docker Hub 与 ghcr 上的同名标签永远是同一个镜像（同一 manifest digest）。工作流：[`.github/workflows/docker-publish.yaml`](./.github/workflows/docker-publish.yaml)。
+
+### 发版
+
+在 GitHub 上发布一个 Release（tag 形如 `v0.8.6`）即可，自动完成：
+
+```
+Release v0.8.6
+   ↓
+解析版本号（去掉前导 v）→ 0.8.6
+   ↓
+构建 linux/amd64 + linux/arm64
+   ↓
+推 ghcr.io/…:0.8.6、ghcr.io/…:latest
+   docker.io/…:0.8.6、docker.io/…:latest
+   ↓
+逐个标签校验，必须全部指向同一 manifest，否则任务失败
+```
+
+版本号优先级：Release tag → 手动运行时的 `version` 输入 → commit 短 sha。
+
+### 手动运行
+
+Actions 页面选 `Build and push images` → Run workflow，可填：
+
+| 输入 | 默认 | 说明 |
+| --- | --- | --- |
+| `version` | 空（用 commit 短 sha） | 镜像标签，如 `0.8.6`；不要带 `v` |
+| `push_latest` | `true` | 是否同时移动 `latest`；补历史版本时填 `false` |
+| `platforms` | `linux/amd64,linux/arm64` | 多架构构建列表；只想快速验证可只留 `linux/amd64` |
+| `targets` | `both` | `both` / `hub` / `ghcr`，只推其中一个仓库时用 |
+
+> 只推 ghcr 或只推 hub 时，最后的「digest 一致」校验会自动跳过。
+
+### 需要的仓库配置
+
+- Secrets：`DOCKERHUB_USERNAME`、`DOCKERHUB_TOKEN`（Docker Hub 的 Access Token，非登录密码）。
+- GHCR 默认用内置 `GITHUB_TOKEN`，无需额外配置。**注意**：如果镜像包最初是手工用 PAT 推上去的，需在包的 Settings → *Manage Actions access* 里把本仓库加为 `Write`，否则会报 `permission_denied: write_package`。也可以用有 `write:packages` 的 PAT 存成 secret `GHCR_PAT`，工作流会优先使用它。
+
+### 本地自己构建
+
+```bash
+npm ci && npm run build          # 产出 dist
+docker build -t xg-icons-hub:dev .
+```
+
 ## 安全
 
 - **输出转义**：所有来自环境变量的展示文本按上下文转义——标题/页脚文字做 HTML 文本转义，Logo / Favicon / SEO 描述做属性转义；`COPYRIGHT` 按设计仍按 HTML 渲染（如需纯文本请自行转义）。
