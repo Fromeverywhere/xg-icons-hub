@@ -64,10 +64,15 @@ jobs:
         env:
           VER: ${{ steps.ver.outputs.version }}
           LATEST: ${{ inputs.push_latest }}
-          GH: ghcr.io/${{ github.repository }}
-          HUB: docker.io/${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}
+          REPO: ${{ github.repository }}
+          DH_USER: ${{ secrets.DOCKERHUB_USERNAME }}
         run: |
           set -euo pipefail
+          # Docker 要求仓库名全小写，而 github.repository 会保留原始大小写
+          # （Fromeverywhere/xg-icons-hub），直接用会被 buildx 拒绝：
+          #   invalid tag "ghcr.io/Fromeverywhere/...": repository name must be lowercase
+          GH="ghcr.io/${REPO,,}"
+          HUB="docker.io/${DH_USER,,}/${IMAGE_NAME,,}"
           out="$GH:$VER,$HUB:$VER"
           case "${LATEST:-true}" in
             false|False|FALSE|0|no) echo "latest: skipped";;
