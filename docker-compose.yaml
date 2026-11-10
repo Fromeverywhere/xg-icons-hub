@@ -12,9 +12,9 @@ services:
   xg-icons-hub:
     # ============ 镜像源：二选一 ============
     # ① Docker Hub（默认）
-    image: fromeverywhere/xg-icons-hub:0.8.5
+    image: fromeverywhere/xg-icons-hub:0.8.6
     # ② GitHub Container Registry：拉取 Docker Hub 慢/不通时改用这行
-    # image: ghcr.io/fromeverywhere/xg-icons-hub:0.8.5
+    # image: ghcr.io/fromeverywhere/xg-icons-hub:0.8.6
     #
     # 如需本地自行构建：注释掉上面的 image，改用下面的 build
     # build:
