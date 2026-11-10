@@ -69,12 +69,17 @@ jobs:
           # 走 registry 的 token 交换，而不是 hub.docker.com 的 login 接口：
           # 后者对 PAT 的支持不稳定，且失败时不给原因。
           # 删除 manifest 由 push 权限覆盖；写 delete 会被 auth.docker.io 拒掉。
-          TOK=$(curl -s -u "${HUB_USER}:${HUB_TOKEN}" \
-            "https://auth.docker.io/token?service=registry.docker.io&scope=repository:${HUB_USER}/xg-icons-hub:pull,push" \
-            | jq -r .token)
-          if [ -z "$TOK" ] || [ "$TOK" = "null" ]; then
-            echo "::error::token exchange failed — check DOCKERHUB_TOKEN (name + token)"; exit 1
+          auth=$(curl -s -w '\n%{http_code}' -u "${HUB_USER}:${HUB_TOKEN}" \
+            "https://auth.docker.io/token?service=registry.docker.io&scope=repository:${HUB_USER}/xg-icons-hub:pull,push")
+          acode=$(printf '%s' "$auth" | tail -1)
+          body=$(printf '%s' "$auth" | sed '$d')
+          if [ "$acode" != "200" ]; then
+            echo "::error::token exchange failed (HTTP $acode)"
+            printf '%s' "$body" | head -c 300; echo
+            exit 1
           fi
+          TOK=$(printf '%s' "$body" | jq -r .token)
+          echo "hub auth ok, token ${#TOK} chars"
           hdr=$(curl -s -o /dev/null -D - -H "Authorization: Bearer $TOK" \
                 -H "Accept: application/vnd.docker.distribution.manifest.v2+json, application/vnd.oci.image.manifest.v1+json" \
                 "https://registry-1.docker.io/v2/${HUB_USER}/xg-icons-hub/manifests/${TAG}")
