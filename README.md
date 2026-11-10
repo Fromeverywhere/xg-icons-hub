@@ -235,7 +235,7 @@ docker build -t xg-icons-hub:dev .
 
 Actions 页面选 `Delete image tags` → Run workflow，填标签名与 `both`/`hub`/`ghcr`。它拒绝删除 `latest` 与版本号标签，避免误伤正式发布。
 
-> 两端删除机制不同：ghcr 走 GitHub Packages API（registry API 不支持删 manifest，会返回 405）；Docker Hub 先用 `auth.docker.io` 换 registry token 再按 digest 删 manifest，因此 `DOCKERHUB_TOKEN` 必须是 **Read, Write, Delete** 级别 —— Read & Write 能推镜像但删不了 tag（返回 `401 Action: delete`），这种情况直接在仓库页 Tags 里手删即可。
+> 两端删除机制不同：ghcr 走 GitHub Packages API（registry API 不支持删 manifest，会返回 405）；Docker Hub 先用 `auth.docker.io` 换 registry token 按 digest 删 manifest，该操作需要 `delete` 动作（**Read, Write, Delete** 级 token）。若返回 `401 Action: delete`，工作流会自动回退到 `hub.docker.com` 的 tag API 按标签删除 —— **Read & Write** 级 token 就够（实测 PAT + `Authorization: JWT` → 204）。只有两条路都失败时才需要到仓库页 Tags 里手删。
 >
 > 删除是「按 manifest digest」生效的：若 `latest` 等标签与目标标签指向同一个 digest，会一起消失。工作流在两端都会先检查是否有兄弟标签，发现即拒绝执行；GHCR 侧同理会检查该 package version 是否还挂着其它 tag。
 

@@ -74,9 +74,8 @@ jobs:
           HUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
           set -euo pipefail
-          # 走 registry 的 token 交换，而不是 hub.docker.com 的 login 接口：
-          # 后者对 PAT 的支持不稳定，且失败时不给原因。
-          # 删除 manifest 由 push 权限覆盖；写 delete 会被 auth.docker.io 拒掉。
+          # 先按 digest 删 manifest：这一步需要 delete 动作，Read & Write 级 PAT
+          # 只授予 pull,push（返回 401）；失败则回退到 Hub 的 tag API。
           echo "credential shapes: user=${#HUB_USER} chars, token=${#HUB_TOKEN} chars, token prefix ${HUB_TOKEN:0:9}"
           auth=$(curl -s -w '\n%{http_code}' -u "${HUB_USER}:${HUB_TOKEN}" \
             "https://auth.docker.io/token?service=registry.docker.io&scope=repository:${HUB_USER}/xg-icons-hub:pull,push")
@@ -129,7 +128,7 @@ jobs:
           cat /tmp/hub_del.json 2>/dev/null || true
           if [ "$code" = "401" ]; then
             # registry 的 DELETE manifest 需要 delete 动作，Read & Write 级 PAT 只给 pull,push。
-            # Hub 的 tag API 按标签删、不动 manifest，再试一次（部分权限级别下可用）。
+            # Hub 的 tag API 按标签删、不动 manifest：实测 PAT + `Authorization: JWT` 返回 204。
             echo "registry delete denied; trying Hub tag API ..."
             JWT=$(curl -s -H 'Content-Type: application/json' \
                   -d "{\"username\":\"${HUB_USER}\",\"password\":\"${HUB_TOKEN}\"}" \
@@ -147,7 +146,7 @@ jobs:
             else
               echo "hub login failed (PAT rejected by /v2/users/login/)"
             fi
-            echo "::error::token has no delete permission — use a Read/Write/Delete token, or delete the tag on hub.docker.com"
+            echo "::error::both registry manifest DELETE and Hub tag API failed — delete the tag manually on hub.docker.com"
             exit 1
           fi
           [ "$code" = "202" ] || [ "$code" = "200" ] || exit 1
