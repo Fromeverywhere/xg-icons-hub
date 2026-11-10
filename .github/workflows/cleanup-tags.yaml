@@ -68,8 +68,9 @@ jobs:
           set -euo pipefail
           # 走 registry 的 token 交换，而不是 hub.docker.com 的 login 接口：
           # 后者对 PAT 的支持不稳定，且失败时不给原因。
+          # 删除 manifest 由 push 权限覆盖；写 delete 会被 auth.docker.io 拒掉。
           TOK=$(curl -s -u "${HUB_USER}:${HUB_TOKEN}" \
-            "https://auth.docker.io/token?service=registry.docker.io&scope=repository:${HUB_USER}/xg-icons-hub:delete,pull" \
+            "https://auth.docker.io/token?service=registry.docker.io&scope=repository:${HUB_USER}/xg-icons-hub:pull,push" \
             | jq -r .token)
           if [ -z "$TOK" ] || [ "$TOK" = "null" ]; then
             echo "::error::token exchange failed — check DOCKERHUB_TOKEN (name + token)"; exit 1
