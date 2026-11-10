@@ -3,7 +3,7 @@ name: Build and Push (GHCR + Docker Hub)
 # 一次构建，同时推到 ghcr.io 与 docker.io，避免两套镜像 digest 漂移。
 # 触发方式：
 #   1) 发 Release（非预发布）—— 自动用 tag 名当版本号，并把 latest 指向它
-#   2) Actions 页面手动运行 —— 可指定版本号、是否顺带打 latest、构建哪些平台
+#   2) Actions 页面手动运行 —— 可指定版本号、是否顺带打 latest、构建哪些平台、推哪些仓库
 on:
   workflow_dispatch:
     inputs:
@@ -20,6 +20,11 @@ on:
         description: '构建平台（默认双架构；只想快速验证可填 linux/amd64）'
         required: false
         default: 'linux/amd64,linux/arm64'
+        type: string
+      targets:
+        description: '推送到哪些仓库：both / hub / ghcr'
+        required: false
+        default: 'both'
         type: string
   release:
     types: [published]
@@ -64,6 +69,7 @@ jobs:
         env:
           VER: ${{ steps.ver.outputs.version }}
           LATEST: ${{ inputs.push_latest }}
+          TARGETS: ${{ inputs.targets }}
           REPO: ${{ github.repository }}
           DH_USER: ${{ secrets.DOCKERHUB_USERNAME }}
         run: |
@@ -73,13 +79,23 @@ jobs:
           #   invalid tag "ghcr.io/Fromeverywhere/...": repository name must be lowercase
           GH="ghcr.io/${REPO,,}"
           HUB="docker.io/${DH_USER,,}/${IMAGE_NAME,,}"
-          out="$GH:$VER,$HUB:$VER"
-          case "${LATEST:-true}" in
-            false|False|FALSE|0|no) echo "latest: skipped";;
-            *) out="$out,$GH:latest,$HUB:latest";;
+          tags=""
+          case "${TARGETS:-both}" in
+            hub)  tags="$HUB:$VER" ;;
+            ghcr) tags="$GH:$VER" ;;
+            *)    tags="$GH:$VER,$HUB:$VER" ;;
           esac
-          echo "tags=$out" >> "$GITHUB_OUTPUT"
-          echo "tags: $out"
+          case "${LATEST:-true}" in
+            false|False|FALSE|0|no) echo "latest: skipped" ;;
+            *)
+              case "${TARGETS:-both}" in
+                hub)  tags="$tags,$HUB:latest" ;;
+                ghcr) tags="$tags,$GH:latest" ;;
+                *)    tags="$tags,$GH:latest,$HUB:latest" ;;
+              esac ;;
+          esac
+          echo "tags=$tags" >> "$GITHUB_OUTPUT"
+          echo "tags: $tags"
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -88,20 +104,24 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to GHCR
+        if: ${{ inputs.targets != 'hub' }}
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          # GITHUB_TOKEN 只有在「包设置 → Manage Actions access」里给本仓库 Write
+          # 权限后才能推。做不到时把有 write:packages 的 PAT 存成 GHCR_PAT 即可。
+          password: ${{ secrets.GHCR_PAT || secrets.GITHUB_TOKEN }}
 
       - name: Log in to Docker Hub
+        if: ${{ inputs.targets != 'ghcr' }}
         uses: docker/login-action@v3
         with:
           registry: docker.io
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and push to both registries
+      - name: Build and push
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -119,7 +139,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Verify both registries hold the same image
+      - name: Verify every tag resolves to the same image
         env:
           TAGS: ${{ steps.tags.outputs.tags }}
         run: |
@@ -133,10 +153,10 @@ jobs:
           n=$(sort -u digests.txt | wc -l | tr -d ' ')
           echo "distinct manifest digests: $n"
           if [ "$n" -ne 1 ]; then
-            echo "::error::两个仓库的 manifest digest 不一致，推送结果不可信"
+            echo "::error::所有标签应指向同一 manifest，实际出现 $n 个不同 digest"
             exit 1
           fi
-          echo "OK: 两个仓库指向同一 manifest"
+          echo "OK: 所有标签指向同一 manifest"
 
       - name: Job summary
         if: always()
@@ -148,9 +168,9 @@ jobs:
             echo "- 提交：\`${{ github.sha }}\`"
             echo "- 平台：\`${{ inputs.platforms || 'linux/amd64,linux/arm64' }}\`"
             echo ""
-            echo "| 仓库 | 地址 |"
-            echo "|---|---|"
+            echo "| 标签 |"
+            echo "|---|"
             for ref in $(echo "${{ steps.tags.outputs.tags }}" | tr ',' ' '); do
-              echo "| ${ref%%:*} | \`$ref\` |"
+              echo "| \`$ref\` |"
             done
           } >> "$GITHUB_STEP_SUMMARY"
