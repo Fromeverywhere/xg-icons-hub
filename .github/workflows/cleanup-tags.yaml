@@ -39,24 +39,24 @@ jobs:
         if: inputs.targets == 'both' || inputs.targets == 'ghcr'
         env:
           TAG: ${{ inputs.tag }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GHCR_PAT || secrets.GITHUB_TOKEN }}
           OWNER: ${{ github.repository_owner }}
         run: |
           set -euo pipefail
-          OWNER="${OWNER,,}"
-          TOK=$(curl -s -u "${GITHUB_ACTOR}:${GH_TOKEN}" \
-            "https://ghcr.io/token?service=ghcr.io&scope=repository:${OWNER}/xg-icons-hub:delete,pull" \
-            | jq -r .token)
-          D=$(curl -s -o /dev/null -D - -H "Authorization: Bearer $TOK" \
-              -H "Accept: application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json" \
-              "https://ghcr.io/v2/${OWNER}/xg-icons-hub/manifests/${TAG}" \
-              | tr -d '\r' | grep -i '^docker-content-digest:' | awk '{print $2}')
-          echo "ghcr ${TAG} -> ${D:-not found}"
-          [ -z "$D" ] && { echo "ghcr: nothing to delete"; exit 0; }
-          code=$(curl -s -o /dev/null -w '%{http_code}' -X DELETE -H "Authorization: Bearer $TOK" \
-                 "https://ghcr.io/v2/${OWNER}/xg-icons-hub/manifests/${D}")
-          echo "ghcr delete -> HTTP $code"
-          [ "$code" = "202" ] || [ "$code" = "200" ] || exit 1
+          # ghcr 的 registry API 不支持 DELETE manifest（返回 405），
+          # 只能通过 GitHub Packages REST API 按「版本」删除。
+          api="https://api.github.com/users/${OWNER}/packages/container/xg-icons-hub/versions"
+          ids=$(curl -s -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+                "${api}?per_page=100" \
+                | jq -r --arg t "$TAG" '.[] | select(((.metadata.container.tags) // []) | index($t)) | .id')
+          if [ -z "$ids" ]; then echo "ghcr: no version carries tag '$TAG'"; exit 0; fi
+          for id in $ids; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' -X DELETE \
+                   -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+                   "${api}/${id}")
+            echo "ghcr delete version $id -> HTTP $code"
+            [ "$code" = "204" ] || [ "$code" = "200" ] || exit 1
+          done
 
       - name: Delete from Docker Hub
         if: inputs.targets == 'both' || inputs.targets == 'hub'
