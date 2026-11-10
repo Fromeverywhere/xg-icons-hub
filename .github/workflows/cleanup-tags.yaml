@@ -81,6 +81,14 @@ jobs:
           fi
           TOK=$(printf '%s' "$body" | jq -r .token)
           echo "hub auth ok, token ${#TOK} chars"
+          # 解码 registry token，确认这次到底拿到了哪些动作（判断 token 权限级别）
+          python3 - "$TOK" <<'PYEOF'
+          import base64, json, sys
+          seg = sys.argv[1].split(".")[1]
+          seg += "=" * (-len(seg) % 4)
+          d = json.loads(base64.urlsafe_b64decode(seg))
+          print("granted:", [(a.get("type"), a.get("actions")) for a in d.get("access", [])])
+          PYEOF
           hdr=$(curl -s -o /dev/null -D - -H "Authorization: Bearer $TOK" \
                 -H "Accept: application/vnd.docker.distribution.manifest.v2+json, application/vnd.oci.image.manifest.v1+json" \
                 "https://registry-1.docker.io/v2/${HUB_USER}/xg-icons-hub/manifests/${TAG}")
@@ -95,6 +103,10 @@ jobs:
                  "https://registry-1.docker.io/v2/${HUB_USER}/xg-icons-hub/manifests/${D}")
           echo "hub delete ${TAG} -> HTTP $code"
           cat /tmp/hub_del.json 2>/dev/null || true
+          if [ "$code" = "401" ]; then
+            echo "::error::token has no delete permission — use a Read/Write/Delete token, or delete the tag on hub.docker.com"
+            exit 1
+          fi
           [ "$code" = "202" ] || [ "$code" = "200" ] || exit 1
 
       - name: Summary
