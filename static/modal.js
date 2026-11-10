@@ -10,6 +10,7 @@
     let previousButton = null;
     let nextButton = null;
     let imgEl = null;
+    let hintEl = null;
     let nameEl = null;
     let formatEl = null;
     let catEl = null;
@@ -65,6 +66,7 @@
             '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>' +
             '</button>' +
             '<img alt="" fetchpriority="high" draggable="false" />' +
+            '<div class="icon-preview-hint" role="status" aria-live="polite">原图加载中</div>' +
             '</div>' +
             '<div class="icon-modal-actions">' +
             '<a class="icon-modal-btn icon-modal-download" download>' +
@@ -82,6 +84,7 @@
         previousButton = modalEl.querySelector('.icon-modal-nav-previous');
         nextButton = modalEl.querySelector('.icon-modal-nav-next');
         imgEl = modalEl.querySelector('.icon-modal-icon img');
+        hintEl = modalEl.querySelector('.icon-preview-hint');
         nameEl = modalEl.querySelector('.icon-modal-heading-text');
         formatEl = modalEl.querySelector('.icon-modal-format');
         catEl = modalEl.querySelector('.icon-modal-cat');
@@ -205,6 +208,7 @@
         imgEl.classList.add('icon-preview-loading');
         imgEl.removeAttribute('src');
         imgEl.style.opacity = '';
+        hintEl.textContent = '原图加载中';
         previewEl.classList.add('is-loading');
 
         imgEl.alt = displayName;
@@ -225,19 +229,37 @@
         openInNewWindowLink.setAttribute('title', `在新窗口打开 ${displayName}`);
         updateNavigationControls();
 
+        // load 只代表字节到齐，位图可能还没解码完。等 decode() 成功再显示，
+        // 就不会出现「先闪一下旧图/空白，再跳成新图」。
         imgEl.addEventListener('load', function onLoad() {
             imgEl.removeEventListener('load', onLoad);
             if (token !== loadToken) return;
-            imgEl.classList.remove('icon-preview-loading');
-            previewEl.classList.remove('is-loading');
-            if (direction) {
-                void imgEl.offsetWidth;
-                imgEl.classList.add(direction > 0 ? 'icon-preview-enter-from-right' : 'icon-preview-enter-from-left');
+            const reveal = function () {
+                if (token !== loadToken) return;
+                imgEl.classList.remove('icon-preview-loading');
+                previewEl.classList.remove('is-loading');
+                if (direction) {
+                    void imgEl.offsetWidth;
+                    imgEl.classList.add(direction > 0 ? 'icon-preview-enter-from-right' : 'icon-preview-enter-from-left');
+                }
+            };
+            if (typeof imgEl.decode === 'function') {
+                imgEl.decode().then(reveal, reveal);
+            } else {
+                reveal();
             }
         });
 
         imgEl.src = url;
         preloadNeighbors();
+
+        // 兜底：极端情况下 load 不触发（如代理挂住），别让提示一直悬着。
+        window.setTimeout(function () {
+            if (token !== loadToken) return;
+            if (!imgEl.classList.contains('icon-preview-loading')) return;
+            imgEl.classList.remove('icon-preview-loading');
+            previewEl.classList.remove('is-loading');
+        }, 15000);
     }
 
     function navigate(direction) {

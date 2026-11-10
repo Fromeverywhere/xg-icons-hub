@@ -36,10 +36,10 @@ Fork 本仓库到你的 GitHub 账号，图标路径 `/images` 下可替换为�
 
 | 源 | 镜像地址 |
 | --- | --- |
-| Docker Hub | `fromeverywhere/xg-icons-hub:0.8.6` |
-| GitHub Container Registry | `ghcr.io/fromeverywhere/xg-icons-hub:0.8.6` |
+| Docker Hub | `fromeverywhere/xg-icons-hub:0.8.7` |
+| GitHub Container Registry | `ghcr.io/fromeverywhere/xg-icons-hub:0.8.7` |
 
-> 拉 Docker Hub 慢或不通时，把镜像换成 ghcr 那一行即可。两个源都同时提供 `0.8.6`（固定版本）与 `latest`（跟随最新发布）两个标签。宿主机图标路径 `./images`、映射端口 `28080` 均可按需改动；图标放在 `images/<分类>/<图标文件>`。
+> 拉 Docker Hub 慢或不通时，把镜像换成 ghcr 那一行即可。两个源都同时提供 `0.8.7`（固定版本）与 `latest`（跟随最新发布）两个标签。宿主机图标路径 `./images`、映射端口 `28080` 均可按需改动；图标放在 `images/<分类>/<图标文件>`。
 
 ### docker compose（推荐）
 
@@ -48,7 +48,7 @@ Fork 本仓库到你的 GitHub 账号，图标路径 `/images` 下可替换为�
 ```yaml
 services:
   xg-icons-hub:
-    image: fromeverywhere/xg-icons-hub:0.8.6   # 或 ghcr.io/fromeverywhere/xg-icons-hub:0.8.6
+    image: fromeverywhere/xg-icons-hub:0.8.7   # 或 ghcr.io/fromeverywhere/xg-icons-hub:0.8.7
     container_name: xg-icons-hub
     ports:
       - "28080:5000"                 # 左侧宿主机端口可按需改
@@ -73,8 +73,8 @@ docker run -d --name xg-icons-hub \
   -v xg-thumbs:/app/thumbs \
   -e SITE_NAME="我的图标库" \
   --restart unless-stopped \
-  fromeverywhere/xg-icons-hub:0.8.6
-# 或改用 ghcr 源： ghcr.io/fromeverywhere/xg-icons-hub:0.8.6
+  fromeverywhere/xg-icons-hub:0.8.7
+# 或改用 ghcr 源： ghcr.io/fromeverywhere/xg-icons-hub:0.8.7
 ```
 
 ## 缩略图与目录监控（Docker）
@@ -174,7 +174,7 @@ docker run -d --name xg-icons-hub \
 ```yaml
 services:
   xg-icons-hub:
-    image: fromeverywhere/xg-icons-hub:0.8.6   # 或 ghcr.io/fromeverywhere/xg-icons-hub:0.8.6
+    image: fromeverywhere/xg-icons-hub:0.8.7   # 或 ghcr.io/fromeverywhere/xg-icons-hub:0.8.7
     container_name: xg-icons-hub
     ports:
       - "28080:5000"
@@ -189,17 +189,17 @@ services:
 
 ### 发版
 
-在 GitHub 上发布一个 Release（tag 形如 `v0.8.6`）即可，自动完成：
+在 GitHub 上发布一个 Release（tag 形如 `v0.8.7`）即可，自动完成：
 
 ```
-Release v0.8.6
+Release v0.8.7
    ↓
-解析版本号（去掉前导 v）→ 0.8.6
+解析版本号（去掉前导 v）→ 0.8.7
    ↓
 构建 linux/amd64 + linux/arm64
    ↓
-推 ghcr.io/…:0.8.6、ghcr.io/…:latest
-   docker.io/…:0.8.6、docker.io/…:latest
+推 ghcr.io/…:0.8.7、ghcr.io/…:latest
+   docker.io/…:0.8.7、docker.io/…:latest
    ↓
 逐个标签校验，必须全部指向同一 manifest，否则任务失败
 ```
@@ -212,7 +212,7 @@ Actions 页面选 `Build and push images` → Run workflow，可填：
 
 | 输入 | 默认 | 说明 |
 | --- | --- | --- |
-| `version` | 空（用 commit 短 sha） | 镜像标签，如 `0.8.6`；不要带 `v` |
+| `version` | 空（用 commit 短 sha） | 镜像标签，如 `0.8.7`；不要带 `v` |
 | `push_latest` | `true` | 是否同时移动 `latest`；补历史版本时填 `false` |
 | `platforms` | `linux/amd64,linux/arm64` | 多架构构建列表；只想快速验证可只留 `linux/amd64` |
 | `targets` | `both` | `both` / `hub` / `ghcr`，只推其中一个仓库时用 |

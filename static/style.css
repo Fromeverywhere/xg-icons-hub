@@ -1029,6 +1029,35 @@ button {
     border-top-color: rgba(255, 255, 255, 0.7);
 }
 
+/* 加载提示文字：转圈下方一行，延迟 120ms 出现，避免缓存命中时一闪而过。 */
+.icon-preview-hint {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    z-index: 2;
+    padding: 0 12px;
+    color: rgba(90, 98, 110, 0.92);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    line-height: 1.5;
+    text-align: center;
+    white-space: nowrap;
+    opacity: 0;
+    transform: translate(-50%, 27px);
+    transition: opacity 0.18s ease;
+    pointer-events: none;
+}
+
+.icon-modal-icon.is-loading .icon-preview-hint {
+    opacity: 1;
+    transition-delay: 0.12s;
+}
+
+.icon-modal-icon[data-preview-theme="dark"].is-loading .icon-preview-hint {
+    color: rgba(255, 255, 255, 0.76);
+}
+
 @keyframes icon-preview-spin {
     to {
         transform: rotate(360deg);
