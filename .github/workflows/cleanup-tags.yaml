@@ -128,6 +128,25 @@ jobs:
           echo "hub delete ${TAG} -> HTTP $code"
           cat /tmp/hub_del.json 2>/dev/null || true
           if [ "$code" = "401" ]; then
+            # registry 的 DELETE manifest 需要 delete 动作，Read & Write 级 PAT 只给 pull,push。
+            # Hub 的 tag API 按标签删、不动 manifest，再试一次（部分权限级别下可用）。
+            echo "registry delete denied; trying Hub tag API ..."
+            JWT=$(curl -s -H 'Content-Type: application/json' \
+                  -d "{\"username\":\"${HUB_USER}\",\"password\":\"${HUB_TOKEN}\"}" \
+                  https://hub.docker.com/v2/users/login/ | jq -r '.token // empty' || true)
+            if [ -n "$JWT" ] && [ "$JWT" != "null" ]; then
+              echo "hub login ok, jwt ${#JWT} chars"
+              for scheme in JWT Bearer; do
+                tcode=$(curl -s -o /tmp/hub_tag_del.json -w '%{http_code}' -X DELETE \
+                        -H "Authorization: ${scheme} ${JWT}" \
+                        "https://hub.docker.com/v2/repositories/${HUB_USER}/xg-icons-hub/tags/${TAG}/")
+                echo "hub tag API (${scheme}) delete ${TAG} -> HTTP $tcode"
+                cat /tmp/hub_tag_del.json 2>/dev/null || true
+                if [ "$tcode" = "204" ] || [ "$tcode" = "200" ] || [ "$tcode" = "202" ]; then exit 0; fi
+              done
+            else
+              echo "hub login failed (PAT rejected by /v2/users/login/)"
+            fi
             echo "::error::token has no delete permission — use a Read/Write/Delete token, or delete the tag on hub.docker.com"
             exit 1
           fi
