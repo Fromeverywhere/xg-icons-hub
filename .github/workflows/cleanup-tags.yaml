@@ -46,11 +46,19 @@ jobs:
           # ghcr 的 registry API 不支持 DELETE manifest（返回 405），
           # 只能通过 GitHub Packages REST API 按「版本」删除。
           api="https://api.github.com/users/${OWNER}/packages/container/xg-icons-hub/versions"
-          ids=$(curl -s -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
-                "${api}?per_page=100" \
+          versions=$(curl -s -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+                "${api}?per_page=100")
+          ids=$(printf '%s' "$versions" \
                 | jq -r --arg t "$TAG" '.[] | select(((.metadata.container.tags) // []) | index($t)) | .id')
           if [ -z "$ids" ]; then echo "ghcr: no version carries tag '$TAG'"; exit 0; fi
           for id in $ids; do
+            # 一个 package version 可以同时挂多个 tag，删 version 会把它们一起删掉。
+            siblings=$(printf '%s' "$versions" | jq -r --arg t "$TAG" --argjson id "$id" \
+                       '.[] | select(.id == $id) | ((.metadata.container.tags) // [])[] | select(. != $t)' || true)
+            if [ -n "$siblings" ]; then
+              echo "::error::ghcr version $id also carries tag(s): $siblings — refusing to delete"
+              exit 1
+            fi
             code=$(curl -s -o /dev/null -w '%{http_code}' -X DELETE \
                    -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
                    "${api}/${id}")
@@ -93,11 +101,27 @@ jobs:
                 -H "Accept: application/vnd.docker.distribution.manifest.v2+json, application/vnd.oci.image.manifest.v1+json" \
                 "https://registry-1.docker.io/v2/${HUB_USER}/xg-icons-hub/manifests/${TAG}")
           code=$(printf '%s' "$hdr" | head -1 | awk '{print $2}')
-          D=$(printf '%s' "$hdr" | tr -d '\r' | grep -i '^docker-content-digest:' | awk '{print $2}')
+          D=$(printf '%s' "$hdr" | tr -d '\r' | grep -i '^docker-content-digest:' | awk '{print $2}' || true)
           echo "hub ${TAG} -> HTTP ${code:-?} digest=${D:-none}"
           if [ "$code" = "404" ] || [ -z "$D" ]; then echo "hub: tag not found, nothing to do"; exit 0; fi
-          # 注意：删的是 manifest，同 digest 上的其他标签会一起消失。
-          # Guard 步骤已禁止 latest 与版本号，这里再确认一次 digest 只被目标标签引用。
+          # 删 manifest 会让所有指向同一 digest 的标签一起消失（latest 常与版本标签共享 digest）。
+          # Guard 只检查了标签名，这里再逐个核对，发现兄弟标签就拒绝执行。
+          accept='application/vnd.docker.distribution.manifest.v2+json, application/vnd.oci.image.manifest.v1+json'
+          all_tags=$(curl -s -H "Authorization: Bearer $TOK" \
+                     "https://registry-1.docker.io/v2/${HUB_USER}/xg-icons-hub/tags/list" \
+                     | jq -r '.tags[]?' || true)
+          siblings=""
+          for t in $all_tags; do
+            [ "$t" = "$TAG" ] && continue
+            td=$(curl -s -o /dev/null -D - -H "Authorization: Bearer $TOK" -H "Accept: ${accept}" \
+                  "https://registry-1.docker.io/v2/${HUB_USER}/xg-icons-hub/manifests/${t}" \
+                  | tr -d '\r' | grep -i '^docker-content-digest:' | awk '{print $2}' || true)
+            [ "$td" = "$D" ] && siblings="$siblings $t"
+          done
+          if [ -n "$siblings" ]; then
+            echo "::error::digest ${D} is shared with tag(s):${siblings} — refusing to delete (would remove them too)"
+            exit 1
+          fi
           code=$(curl -s -o /tmp/hub_del.json -w '%{http_code}' -X DELETE \
                  -H "Authorization: Bearer $TOK" \
                  "https://registry-1.docker.io/v2/${HUB_USER}/xg-icons-hub/manifests/${D}")
