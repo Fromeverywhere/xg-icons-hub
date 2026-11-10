@@ -21,6 +21,8 @@
     let currentIcons = [];
     let currentIndex = -1;
     let swipeStart = null;
+    let loadToken = 0;
+    const preloaded = new Set();
 
     function build() {
         overlayEl = document.createElement('div');
@@ -103,6 +105,8 @@
         });
 
         imgEl.addEventListener('error', function () {
+            imgEl.classList.remove('icon-preview-loading');
+            previewEl.classList.remove('is-loading');
             imgEl.src = '/static/favicon.ico';
             imgEl.style.opacity = 0.5;
         });
@@ -179,14 +183,31 @@
         nextButton.setAttribute('aria-disabled', String(currentIndex < 0 || currentIndex >= currentIcons.length - 1));
     }
 
+    function preloadNeighbors() {
+        if (!currentIcons.length) return;
+        [currentIndex - 1, currentIndex + 1].forEach(function (index) {
+            const item = currentIcons[index];
+            if (!item || preloaded.has(item.url)) return;
+            preloaded.add(item.url);
+            const img = new Image();
+            img.decoding = 'async';
+            img.src = item.url;
+        });
+    }
+
     function updateIcon(item, direction) {
         const { url, displayName, category, filename } = item;
-        imgEl.classList.remove('icon-preview-enter-from-left', 'icon-preview-enter-from-right');
-        if (direction) void imgEl.offsetWidth;
+        const token = ++loadToken;
 
-        imgEl.src = url;
-        imgEl.alt = displayName;
+        // 换图前先断开旧图：浏览器在新图解码完成前会继续显示旧画面，
+        // 这才是「打开下一个图标却先看到上一个」的原因。
+        imgEl.classList.remove('icon-preview-enter-from-left', 'icon-preview-enter-from-right');
+        imgEl.classList.add('icon-preview-loading');
+        imgEl.removeAttribute('src');
         imgEl.style.opacity = '';
+        previewEl.classList.add('is-loading');
+
+        imgEl.alt = displayName;
         nameEl.textContent = displayName;
         const formatMatch = (filename || '').match(/\.([^./]+)$/);
         const format = formatMatch ? formatMatch[1].toUpperCase() : '';
@@ -204,9 +225,19 @@
         openInNewWindowLink.setAttribute('title', `在新窗口打开 ${displayName}`);
         updateNavigationControls();
 
-        if (direction) {
-            imgEl.classList.add(direction > 0 ? 'icon-preview-enter-from-right' : 'icon-preview-enter-from-left');
-        }
+        imgEl.addEventListener('load', function onLoad() {
+            imgEl.removeEventListener('load', onLoad);
+            if (token !== loadToken) return;
+            imgEl.classList.remove('icon-preview-loading');
+            previewEl.classList.remove('is-loading');
+            if (direction) {
+                void imgEl.offsetWidth;
+                imgEl.classList.add(direction > 0 ? 'icon-preview-enter-from-right' : 'icon-preview-enter-from-left');
+            }
+        });
+
+        imgEl.src = url;
+        preloadNeighbors();
     }
 
     function navigate(direction) {
@@ -248,6 +279,10 @@
     function close(focusTarget) {
         if (!overlayEl || !overlayEl.classList.contains('open')) return;
         overlayEl.classList.remove('open');
+        // 关闭时作废进行中的加载回调，避免下次打开时残留上一次的加载态。
+        loadToken += 1;
+        imgEl.classList.remove('icon-preview-loading', 'icon-preview-enter-from-left', 'icon-preview-enter-from-right');
+        previewEl.classList.remove('is-loading');
         document.body.classList.remove('modal-open');
         overlayEl.setAttribute('aria-hidden', 'true');
         overlayEl.inert = true;

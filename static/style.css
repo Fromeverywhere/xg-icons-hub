@@ -1003,6 +1003,38 @@ button {
     transform: translateY(12px);
 }
 
+/* 换图期间隐藏旧画面，只留一个转圈，等新图解码完成再淡入。 */
+.icon-modal-icon img.icon-preview-loading {
+    opacity: 0;
+}
+
+.icon-modal-icon.is-loading::after {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    z-index: 2;
+    width: 26px;
+    height: 26px;
+    margin: -13px 0 0 -13px;
+    border: 2px solid rgba(108, 117, 130, 0.24);
+    border-top-color: rgba(108, 117, 130, 0.82);
+    border-radius: 50%;
+    content: "";
+    pointer-events: none;
+    animation: icon-preview-spin 0.68s linear infinite;
+}
+
+.icon-modal-icon[data-preview-theme="dark"].is-loading::after {
+    border-color: rgba(255, 255, 255, 0.16);
+    border-top-color: rgba(255, 255, 255, 0.7);
+}
+
+@keyframes icon-preview-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
 .icon-modal-icon img.icon-preview-enter-from-left {
     animation: icon-preview-enter-from-left 120ms ease-out;
 }
@@ -1788,6 +1820,10 @@ body.modal-open .icon-scroll-area {
 }
 
 @media (prefers-reduced-motion: reduce) {
+    .icon-modal-icon.is-loading::after {
+        animation-duration: 1.8s;
+    }
+
     .icon-card:hover .icon-name.is-overflowing span {
         width: 100%;
         min-width: 0;
