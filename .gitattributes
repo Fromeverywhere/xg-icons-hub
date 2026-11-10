@@ -1,3 +1,8 @@
 # Shell scripts are executed directly inside Linux containers. Force LF so a
 # Windows checkout (core.autocrlf=true) cannot break the entrypoint shebang.
 *.sh text eol=lf
+
+# GitHub Actions 的 run: 块由 Linux 上的 bash 执行，CRLF 会让每条命令尾部多出
+# 一个 \r（报 "$'\r': command not found"）。因此 workflow 文件同样强制 LF。
+.github/workflows/*.yml  text eol=lf
+.github/workflows/*.yaml text eol=lf

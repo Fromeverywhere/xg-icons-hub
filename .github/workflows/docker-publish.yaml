@@ -1,0 +1,151 @@
+name: Build and Push (GHCR + Docker Hub)
+
+# 一次构建，同时推到 ghcr.io 与 docker.io，避免两套镜像 digest 漂移。
+# 触发方式：
+#   1) 发 Release（非预发布）—— 自动用 tag 名当版本号，并把 latest 指向它
+#   2) Actions 页面手动运行 —— 可指定版本号、是否顺带打 latest、构建哪些平台
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '版本号（如 0.8.5，不要带 v）。留空则用 Release tag 或 commit 短 sha'
+        required: false
+        type: string
+      push_latest:
+        description: '是否同时把 latest 指向本次构建'
+        required: false
+        default: true
+        type: boolean
+      platforms:
+        description: '构建平台（默认双架构；只想快速验证可填 linux/amd64）'
+        required: false
+        default: 'linux/amd64,linux/arm64'
+        type: string
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: docker-publish-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  IMAGE_NAME: xg-icons-hub
+
+jobs:
+  build:
+    # 预发布（draft / prerelease）不推镜像
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.release.prerelease == false }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: ver
+        env:
+          REQ: ${{ inputs.version }}
+          REL: ${{ github.event.release.tag_name }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          v="${REQ:-}"
+          if [ -z "$v" ] && [ -n "${REL:-}" ]; then v="$REL"; fi
+          if [ -z "$v" ]; then v="$(printf '%s' "$SHA" | cut -c1-7)"; fi
+          v="${v#v}"          # 去掉前导 v，保证 tag 是 0.8.5 而不是 v0.8.5
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "resolved version: $v"
+
+      - name: Compose tags
+        id: tags
+        env:
+          VER: ${{ steps.ver.outputs.version }}
+          LATEST: ${{ inputs.push_latest }}
+          GH: ghcr.io/${{ github.repository }}
+          HUB: docker.io/${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}
+        run: |
+          set -euo pipefail
+          out="$GH:$VER,$HUB:$VER"
+          case "${LATEST:-true}" in
+            false|False|FALSE|0|no) echo "latest: skipped";;
+            *) out="$out,$GH:latest,$HUB:latest";;
+          esac
+          echo "tags=$out" >> "$GITHUB_OUTPUT"
+          echo "tags: $out"
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          registry: docker.io
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push to both registries
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+          platforms: ${{ inputs.platforms || 'linux/amd64,linux/arm64' }}
+          # 关掉 provenance/sbom，保持干净的单 manifest，老版本 docker 拉取不会看到 unknown/unknown 平台
+          provenance: false
+          sbom: false
+          labels: |
+            org.opencontainers.image.title=xg-icons-hub
+            org.opencontainers.image.version=${{ steps.ver.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Verify both registries hold the same image
+        env:
+          TAGS: ${{ steps.tags.outputs.tags }}
+        run: |
+          set -euo pipefail
+          : > digests.txt
+          for ref in $(echo "$TAGS" | tr ',' ' '); do
+            d=$(docker buildx imagetools inspect "$ref" --format '{{.Manifest.Digest}}')
+            echo "$ref -> $d"
+            echo "$d" >> digests.txt
+          done
+          n=$(sort -u digests.txt | wc -l | tr -d ' ')
+          echo "distinct manifest digests: $n"
+          if [ "$n" -ne 1 ]; then
+            echo "::error::两个仓库的 manifest digest 不一致，推送结果不可信"
+            exit 1
+          fi
+          echo "OK: 两个仓库指向同一 manifest"
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "## xg-icons-hub 镜像发布"
+            echo ""
+            echo "- 版本：\`${{ steps.ver.outputs.version }}\`"
+            echo "- 提交：\`${{ github.sha }}\`"
+            echo "- 平台：\`${{ inputs.platforms || 'linux/amd64,linux/arm64' }}\`"
+            echo ""
+            echo "| 仓库 | 地址 |"
+            echo "|---|---|"
+            for ref in $(echo "${{ steps.tags.outputs.tags }}" | tr ',' ' '); do
+              echo "| ${ref%%:*} | \`$ref\` |"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
