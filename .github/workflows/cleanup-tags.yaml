@@ -69,6 +69,7 @@ jobs:
           # 走 registry 的 token 交换，而不是 hub.docker.com 的 login 接口：
           # 后者对 PAT 的支持不稳定，且失败时不给原因。
           # 删除 manifest 由 push 权限覆盖；写 delete 会被 auth.docker.io 拒掉。
+          echo "credential shapes: user=${#HUB_USER} chars, token=${#HUB_TOKEN} chars, token prefix ${HUB_TOKEN:0:9}"
           auth=$(curl -s -w '\n%{http_code}' -u "${HUB_USER}:${HUB_TOKEN}" \
             "https://auth.docker.io/token?service=registry.docker.io&scope=repository:${HUB_USER}/xg-icons-hub:pull,push")
           acode=$(printf '%s' "$auth" | tail -1)
