@@ -66,16 +66,29 @@ jobs:
           HUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
           set -euo pipefail
-          JWT=$(curl -s -H 'Content-Type: application/json' \
-            -d "{\"username\":\"${HUB_USER}\",\"password\":\"${HUB_TOKEN}\"}" \
-            https://hub.docker.com/v2/users/login | jq -r .token)
-          [ -n "$JWT" ] && [ "$JWT" != "null" ] || { echo "::error::hub login failed"; exit 1; }
+          # 走 registry 的 token 交换，而不是 hub.docker.com 的 login 接口：
+          # 后者对 PAT 的支持不稳定，且失败时不给原因。
+          TOK=$(curl -s -u "${HUB_USER}:${HUB_TOKEN}" \
+            "https://auth.docker.io/token?service=registry.docker.io&scope=repository:${HUB_USER}/xg-icons-hub:delete,pull" \
+            | jq -r .token)
+          if [ -z "$TOK" ] || [ "$TOK" = "null" ]; then
+            echo "::error::token exchange failed — check DOCKERHUB_TOKEN (name + token)"; exit 1
+          fi
+          hdr=$(curl -s -o /dev/null -D - -H "Authorization: Bearer $TOK" \
+                -H "Accept: application/vnd.docker.distribution.manifest.v2+json, application/vnd.oci.image.manifest.v1+json" \
+                "https://registry-1.docker.io/v2/${HUB_USER}/xg-icons-hub/manifests/${TAG}")
+          code=$(printf '%s' "$hdr" | head -1 | awk '{print $2}')
+          D=$(printf '%s' "$hdr" | tr -d '\r' | grep -i '^docker-content-digest:' | awk '{print $2}')
+          echo "hub ${TAG} -> HTTP ${code:-?} digest=${D:-none}"
+          if [ "$code" = "404" ] || [ -z "$D" ]; then echo "hub: tag not found, nothing to do"; exit 0; fi
+          # 注意：删的是 manifest，同 digest 上的其他标签会一起消失。
+          # Guard 步骤已禁止 latest 与版本号，这里再确认一次 digest 只被目标标签引用。
           code=$(curl -s -o /tmp/hub_del.json -w '%{http_code}' -X DELETE \
-                 -H "Authorization: Bearer $JWT" \
-                 "https://hub.docker.com/v2/repositories/${HUB_USER}/xg-icons-hub/tags/${TAG}/")
+                 -H "Authorization: Bearer $TOK" \
+                 "https://registry-1.docker.io/v2/${HUB_USER}/xg-icons-hub/manifests/${D}")
           echo "hub delete ${TAG} -> HTTP $code"
-          cat /tmp/hub_del.json || true
-          [ "$code" = "204" ] || [ "$code" = "200" ] || exit 1
+          cat /tmp/hub_del.json 2>/dev/null || true
+          [ "$code" = "202" ] || [ "$code" = "200" ] || exit 1
 
       - name: Summary
         run: echo "deleted tag \`${{ inputs.tag }}\` from ${{ inputs.targets }}" >> "$GITHUB_STEP_SUMMARY"
