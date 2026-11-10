@@ -231,6 +231,12 @@ npm ci && npm run build          # 产出 dist
 docker build -t xg-icons-hub:dev .
 ```
 
+### 删除误推的标签
+
+Actions 页面选 `Delete image tags` → Run workflow，填标签名与 `both`/`hub`/`ghcr`。它拒绝删除 `latest` 与版本号标签，避免误伤正式发布。
+
+> 两端删除机制不同：ghcr 走 GitHub Packages API（registry API 不支持删 manifest，会返回 405）；Docker Hub 走 `hub.docker.com` 的 tag API，因此 `DOCKERHUB_TOKEN` 必须带 **Read & Write** 权限，只读 token 会返回 `403 insufficient scope`，这种情况直接在仓库页 Tags 里手删即可。
+
 ## 安全
 
 - **输出转义**：所有来自环境变量的展示文本按上下文转义——标题/页脚文字做 HTML 文本转义，Logo / Favicon / SEO 描述做属性转义；`COPYRIGHT` 按设计仍按 HTML 渲染（如需纯文本请自行转义）。
